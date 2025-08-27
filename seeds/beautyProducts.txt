@@ -1,0 +1,291 @@
+const mongoose = require("mongoose");
+const Product = require("../src/models/Products");
+const Category = require("../src/models/Category");
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+
+// First, let's create or get the beauty category
+const getBeautyCategory = async () => {
+  let category = await Category.findOne({ name: "beauty" });
+  if (!category) {
+    category = await Category.create({
+      name: "beauty",
+      description: "Beauty and skincare products",
+      image: "beauty-category.webp"
+    });
+  }
+  return category._id;
+};
+
+// Data produk dengan path gambar yang benar (hanya nama file)
+const initialProducts = [
+  {
+    title:
+      "SALE SKINTIFIC Clay Mask Stick Masker Wajah -Niacinamide Bright Boost Clay Mask Stick Masker 40g",
+    price: 72000,
+    rating: 4.6,
+    reviews: 1340,
+    description:
+      "Masker wajah praktis dalam bentuk stick untuk mencerahkan dan membersihkan pori.",
+    image: "beauty1.webp", // Hanya nama file
+    stock: 123,
+    isActive: true,
+  },
+  {
+    title:
+      "SKIN1004 [Centella Basic 5] Cleansing Oil+Ampoule Foam+Toner 210+Ampoule 100+Soothing Cream 75ml",
+    price: 329000,
+    rating: 4.9,
+    reviews: 1890,
+    description:
+      "Rangkaian skincare lengkap berbahan dasar centella untuk kulit sensitif.",
+    image: "beauty2000.webp",
+    stock: 421,
+    isActive: true,
+  },
+  {
+    title:
+      "【Beli 1 Gratis 1】 ONLYOU Whitening cream moisturizing essence cream / hydrating and moisturizing / soothing light spots【BPOM 】 【COD】 - WhiteCream*2, Standar, Standar",
+    price: 67000,
+    rating: 4.5,
+    reviews: 860,
+    description: "Krim pemutih wajah dengan efek melembapkan dan mencerahkan.",
+    image: "beauty3.webp",
+        stock: 312,
+    isActive: true,
+  },
+  {
+    title:
+      "【BPOM Certification】 ONLYOU PAKET 2PCS Amino acid oil-controlled facial cleanser + moisturizing isolation sunscreen pre-makeup milk 3 in 1【COD】 - xmn+fs",
+    price: 98000,
+    rating: 4.3,
+    reviews: 740,
+    description:
+      "Paket pembersih wajah dan sunscreen 3-in-1 dengan formula ringan.",
+    image: "beauty4.webp",
+        stock: 31,
+    isActive: true,
+  },
+  {
+    title:
+      "Premiere Beaute Serum Retinol Anti-Aging: Serum Wajah Anti Kerut, Melembapkan Intensif, 3X Retinol + 5X Ceramide, Perbaikin Skin Barrier, Ekstrak 7 Tumbuhan Alami, Kulit Kencang & Glowing - 1PC",
+    price: 119000,
+    rating: 4.8,
+    reviews: 1630,
+    description:
+      "Serum retinol anti-aging dengan ceramide dan ekstrak alami untuk kulit kencang.",
+    image: "beauty5.webp",
+        stock: 44,
+    isActive: true,
+  },
+  {
+    title:
+      "SKINTIFIC - 5X Ceramide Barrier Moisturizer Gel 30g | Cream pencerah Wajah Calming Whitening Brightening Dark Spot Pelembab Wajah Pemutih Wajah Facial Moisturizer Day Cream Night Cream Skincare Niacinamide with Centella Acid - 30g",
+    price: 89000,
+    rating: 4.7,
+    reviews: 2020,
+    description:
+      "Pelembap wajah dengan 5x ceramide dan niacinamide untuk perawatan barrier kulit.",
+    image: "beauty6.webp",
+        stock: 66,
+    isActive: true,
+  },
+  {
+    title:
+      "【Pre order】SPECIAL BUNDLE 6 in1 Glad2Glow 6pcs Paket Skincare Moisturizer Serum Clay Mask Face Wash Toner-ACNE KIT GLOWING KIT Dark Spot Gift Set sunscree retinol - Best-Glow& Renew",
+    price: 219000,
+    rating: 4.4,
+    reviews: 930,
+    description:
+      "Paket lengkap skincare anti jerawat dan glowing kit dengan retinol.",
+    image: "beauty7.webp",
+        stock: 451,
+    isActive: true,
+  },
+  {
+    title:
+      "Facetology [IN VIVO & NON COMEDOGENIC TESTED] Triple Care Sunscreen SPF 40 PA+++ 40ML, Sunblock Wajah bantu Mencerahkan & Cover dari sinar matahari Facial - (GET 1)Produk Promosi",
+    price: 57000,
+    rating: 4.2,
+    reviews: 510,
+    description:
+      "Sunscreen wajah SPF 40 dengan perlindungan maksimal dan efek mencerahkan.",
+    image: "beauty8.webp",
+        stock: 612,
+    isActive: true,
+  },
+  {
+    title: "Scarlett Whitening Brightly Ever After Serum 15ml",
+    price: 75000,
+    rating: 4.7,
+    reviews: 1120,
+    description:
+      "Serum pencerah wajah dengan glutathione dan vitamin C untuk kulit glowing.",
+    image: "beauty9.webp",
+        stock: 351,
+    isActive: true,
+  },
+  {
+    title: "Wardah Perfect Bright Moisturizer SPF 28 20ml",
+    price: 26000,
+    rating: 4.5,
+    reviews: 840,
+    description:
+      "Moisturizer pencerah dengan perlindungan dari sinar UV dan efek ringan di kulit.",
+    image: "beauty10.webp",
+        stock: 761,
+    isActive: true,
+  },
+  {
+    title: "Emina Bright Stuff Face Wash 100ml",
+    price: 28000,
+    rating: 4.6,
+    reviews: 940,
+    description:
+      "Facial wash lembut untuk remaja dengan kandungan ekstrak summer plum.",
+    image: "beauty11.webp",
+        stock: 912,
+    isActive: true,
+  },
+  {
+    title: "Avoskin Your Skin Bae Glow Concentrate Treatment 30ml",
+    price: 139000,
+    rating: 4.8,
+    reviews: 760,
+    description:
+      "Treatment serum dengan AHA-BHA dan niacinamide untuk kulit cerah dan sehat.",
+    image: "beauty12.webp",
+        stock: 12,
+    isActive: true,
+  },
+  {
+    title: "Somethinc Ceramic Skin Saviour Moisturizer Gel 50g",
+    price: 145000,
+    rating: 4.7,
+    reviews: 1340,
+    description:
+      "Moisturizer gel dengan 5X ceramide untuk menjaga dan memperkuat skin barrier.",
+    image: "beauty13.webp",
+        stock: 59,
+    isActive: true,
+  },
+  {
+    title: "Azarine Hydrasoothe Sunscreen Gel SPF 45 PA++++ 50ml",
+    price: 63000,
+    rating: 4.9,
+    reviews: 2880,
+    description:
+      "Sunscreen ringan seperti air dengan efek melembapkan dan mendinginkan.",
+    image: "beauty14.webp",
+        stock: 312,
+    isActive: true,
+  },
+  {
+    title: "L'Oreal Paris Revitalift Crystal Micro-Essence 130ml",
+    price: 179000,
+    rating: 4.8,
+    reviews: 1560,
+    description:
+      "Essence wajah untuk kulit lebih halus, cerah, dan tampak muda.",
+    image: "beauty15.webp",
+        stock: 48,
+    isActive: true,
+  },
+  {
+    title: "Garnier Micellar Water Pink 400ml - Pembersih Makeup",
+    price: 72000,
+    rating: 4.6,
+    reviews: 1190,
+    description:
+      "Micellar water multifungsi untuk membersihkan makeup dan menyegarkan kulit.",
+    image: "beauty16.webp",
+        stock: 151,
+    isActive: true,
+  },
+  {
+    title: "The Originote Niacinamide Gel Moisturizer 40g",
+    price: 45000,
+    rating: 4.5,
+    reviews: 810,
+    description:
+      "Gel moisturizer dengan niacinamide dan centella untuk kulit berjerawat.",
+    image: "beauty17.webp",
+        stock: 99,
+    isActive: true,
+  },
+  {
+    title: "Bioaqua Aloe Vera Soothing Gel 220ml",
+    price: 35000,
+    rating: 4.3,
+    reviews: 720,
+    description:
+      "Gel multifungsi dengan kandungan aloe vera untuk melembapkan dan menenangkan kulit.",
+    image: "beauty18.webp",
+        stock: 1232,
+    isActive: true,
+  },
+  {
+    title: "Safi White Expert Purifying Cleanser 100g",
+    price: 29000,
+    rating: 4.4,
+    reviews: 670,
+    description:
+      "Pembersih wajah halal dengan habbatus sauda dan oxywhite untuk kulit bersih cerah.",
+    image: "beauty19.webp",
+        stock: 500,
+    isActive: true,
+  },
+  {
+    title: "Viva FT Bengkuang 100ml",
+    price: 8500,
+    rating: 4.2,
+    reviews: 920,
+    description:
+      "Toner lokal legendaris dengan ekstrak bengkuang untuk mencerahkan wajah.",
+    image: "beauty20.webp",
+        stock: 2311,
+    isActive: true,
+  },
+];
+
+const seedBeauty = async () => {
+  try {
+    if (!process.env.MONGODB_URI) {
+      throw new Error("MONGODB_URI is not defined in environment variables");
+    }
+
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    // Get beauty category ID
+    const beautyCategoryId = await getBeautyCategory();
+
+    // Update all products with category reference
+    const productsToInsert = initialProducts.map(product => ({
+      ...product,
+      category: beautyCategoryId,
+      seller: null, // You might want to set actual seller IDs here
+      images: [product.image], // Convert single image to images array
+      reviewsCount: product.reviews // Map reviews to reviewsCount
+    }));
+
+    // Only delete beauty products
+    await Product.deleteMany({ category: beautyCategoryId });
+    const createdProducts = await Product.insertMany(productsToInsert);
+    console.log(`Seeded ${createdProducts.length} beauty products`);
+
+    await mongoose.connection.close();
+  } catch (error) {
+    console.error("Error seeding beauty products:", error);
+    process.exit(1);
+  }
+};
+
+// Only run if executed directly
+if (require.main === module) {
+  seedBeauty();
+}
+
+module.exports = { seedBeauty, initialProducts };

@@ -1,0 +1,144 @@
+const mongoose = require("mongoose");
+const Product = require("../src/models/Products");
+const Category = require("../src/models/Category");
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+
+const getToysCategory = async () => {
+  let category = await Category.findOne({ name: "toys" });
+  if (!category) {
+    category = await Category.create({
+      name: "Toys",
+      description: "Toys Home Products",
+      image: "toys-category.webp",
+    });
+  }
+  return category._id;
+};
+
+const initialProducts = [
+  {
+    title: "Mainan Edukasi Montessori Anak DIY Building Blocks Magnet Stik Bola - 25pcs",
+    price: 92000,
+    rating: 4.6,
+    reviews: 101,
+    description: "Mainan edukasi montessori untuk mengembangkan kreativitas dan motorik anak.",
+    image: "toys1.webp",
+    stock: 99,
+    isActive: true
+  },
+  {
+    title: "Mainan Anak Roket Air Mancur Terbang Water Rocket Jet Sprinkler Toys - Merah",
+    price: 48000,
+    rating: 4.1,
+    reviews: 76,
+    description: "Mainan roket air terbang yang menyenangkan untuk anak-anak bermain di luar ruangan.",
+    image: "toys2.webp",
+    stock: 321,
+    isActive: true
+  },
+  {
+    title: "Mainan Bola Lempar Bouncy Ball Moon Ball Edukasi Fidget Toys Anti Stress Mainan Super Fun - Baseball",
+    price: 57000,
+    rating: 3.9,
+    reviews: 53,
+    description: "Bola bouncy anti-stres dengan pantulan tinggi dan bentuk lucu untuk anak-anak.",
+    image: "toys3.webp",
+    stock: 49,
+    isActive: true
+  },
+  {
+    title: "Mainan robot dog mechanical dual remot hand gesture - silver",
+    price: 149000,
+    rating: 4.8,
+    reviews: 187,
+    description: "Robot anjing mekanik dengan kontrol remote dan gesture, menghibur dan interaktif.",
+    image: "toys4.webp",
+    stock: 889,
+    isActive: true
+  },
+  {
+    title: "SMY Nano Block Jumbo Doraemon Cowboy Edition Mainan Anak Bricks Education Toys Balok Susun Puzzle 3D - Default",
+    price: 89000,
+    rating: 4.3,
+    reviews: 69,
+    description: "Balok susun puzzle 3D edisi Doraemon yang mendidik dan menyenangkan.",
+    image: "toys5.webp",
+    stock: 109,
+    isActive: true
+  },
+  {
+    title: "Mainan Anak Mesin Capit Claw Machine Jumbo Boneka - Bear Pink",
+    price: 167000,
+    rating: 4.7,
+    reviews: 94,
+    description: "Mesin capit miniatur untuk menangkap boneka, sangat menarik untuk anak-anak.",
+    image: "toys6.webp",
+    stock: 899,
+    isActive: true
+  },
+  {
+    title: "Mainan Anak Tanding Lempar Bola Basket Board Finger Game Set Shooting Basketball - BASKETBALL GAME",
+    price: 36000,
+    rating: 3.5,
+    reviews: 41,
+    description: "Mini game bola basket jari untuk seru-seruan dan latihan koordinasi tangan.",
+    image: "toys7.webp",
+    stock: 129,
+    isActive: true
+  },
+  {
+    title: "WD Car Adventure Brain Game Mainan Edukasi Anak Car adventure SPACE - CA SPACE BIG 4MOBIL",
+    price: 115000,
+    rating: 4.4,
+    reviews: 109,
+    description: "Mainan edukatif mobil petualangan dengan lintasan menarik dan penuh tantangan.",
+    image: "toys8.webp",
+    stock: 419,
+    isActive: true
+  },
+];
+
+
+
+const seedToys = async () => {
+  try {
+    if (!process.env.MONGODB_URI) {
+      throw new Error("MONGODB_URI is not defined in environment variables");
+    }
+
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    // Get fashion category ID
+    const ToysCategoryId = await getToysCategory();
+
+    // Update all products with category reference
+    const productsToInsert = initialProducts.map((product) => ({
+      ...product,
+      category: ToysCategoryId,
+      seller: null, // You might want to set actual seller IDs here
+      images: [product.image], // Convert single image to images array
+      reviewsCount: product.reviews, // Map reviews to reviewsCount
+    }));
+
+    // Only delete Toys products
+    await Product.deleteMany({ category: ToysCategoryId });
+    const createdProducts = await Product.insertMany(productsToInsert);
+    console.log(`Seeded ${createdProducts.length} Toys products`);
+
+    await mongoose.connection.close();
+  } catch (error) {
+    console.error("Error seeding Toys products:", error);
+    process.exit(1);
+  }
+};
+
+// Only run if executed directly
+if (require.main === module) {
+  seedToys();
+}
+
+module.exports = { seedToys, initialProducts };

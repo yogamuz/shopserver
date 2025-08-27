@@ -1,0 +1,143 @@
+const mongoose = require("mongoose");
+const Product = require("../src/models/Products");
+const Category = require("../src/models/Category");
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+
+const getFashionCategory = async () => {
+  let category = await Category.findOne({ name: "fashion" });
+  if (!category) {
+    category = await Category.create({
+      name: "fashion",
+      description: "Fashion and Stylish Products",
+      image: "fashion-category.webp",
+    });
+  }
+  return category._id;
+};
+
+const initialProducts = [
+  {
+    title: "No Void Minds T-Shirt",
+    price: 80000,
+    rating: 4.5,
+    reviews: 88,
+    description: "Comfortable and stylish t-shirt with unique design.",
+    image: "fashion1.webp",
+    stock: 499,
+    isActive: true,
+  },
+  {
+    title: "Loud Hellscream T-Shirt",
+    price: 45000,
+    rating: 3.3,
+    reviews: 122,
+    description: "Casual t-shirt with a bold graphic print.",
+    image: "fashion2.webp",
+    stock: 123,
+    isActive: true,
+  },
+  {
+    title: "Rucas Kawe Ori T-Shirt",
+    price: 77000,
+    rating: 3.2,
+    reviews: 37,
+    description: "Stylish t-shirt with a modern fit and high-quality fabric.",
+    image: "fashion3.webp",
+    stock: 888,
+    isActive: true,
+  },
+  {
+    title: "Sweater Coklat Tua",
+    price: 145000,
+    rating: 4.8,
+    reviews: 410,
+    description: "Warm and cozy brown sweater, perfect for chilly days.",
+    image: "fashion4.webp",
+    stock: 324,
+    isActive: true,
+  },
+  {
+    title: "Ralph Lauren Kawe 100",
+    price: 88000,
+    rating: 4.1,
+    reviews: 310,
+    description: "Classic polo shirt with the iconic Ralph Lauren logo.",
+    image: "fashion5.webp",
+    stock: 83,
+    isActive: true,
+  },
+  {
+    title: "Oversize T-Shirt",
+    price: 99000,
+    rating: 3.1,
+    reviews: 180,
+    description: "Trendy oversize t-shirt with a relaxed fit and soft fabric.",
+    image: "fashion6.webp",
+    stock: 78,
+    isActive: true,
+  },
+  {
+    title: "Jaket Lengan Panjang Cream Halus",
+    price: 249000,
+    rating: 5,
+    reviews: 100,
+    description:
+      "Jacket with long sleeves in soft cream color, perfect for layering.",
+    image: "fashion7.webp",
+    stock: 56,
+    isActive: true,
+  },
+  {
+    title: "Tot e Medium",
+    price: 441000,
+    rating: 4.4,
+    reviews: 21,
+    description: "Canvas full grain leather tote bag, stylish and durable.",
+    image: "fashion8.png",
+    stock: 73,
+    isActive: true,
+  },
+];
+
+const seedFashion = async () => {
+  try {
+    if (!process.env.MONGODB_URI) {
+      throw new Error("MONGODB_URI is not defined in environment variables");
+    }
+
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    // Get fashion category ID
+    const fashionCategoryId = await getFashionCategory();
+
+    // Update all products with category reference
+    const productsToInsert = initialProducts.map(product => ({
+      ...product,
+      category: fashionCategoryId,
+      seller: null, // You might want to set actual seller IDs here
+      images: [product.image], // Convert single image to images array
+      reviewsCount: product.reviews // Map reviews to reviewsCount
+    }));
+
+    // Only delete fashion products
+    await Product.deleteMany({ category: fashionCategoryId });
+    const createdProducts = await Product.insertMany(productsToInsert);
+    console.log(`Seeded ${createdProducts.length} fashion products`);
+
+    await mongoose.connection.close();
+  } catch (error) {
+    console.error("Error seeding fashion products:", error);
+    process.exit(1);
+  }
+};
+
+// Only run if executed directly
+if (require.main === module) {
+  seedFashion();
+}
+
+module.exports = { seedFashion, initialProducts };

@@ -1,0 +1,143 @@
+const mongoose = require("mongoose");
+const Product = require("../src/models/Products");
+const Category = require("../src/models/Category");
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+
+const getFurnitureCategory = async () => {
+  let category = await Category.findOne({ name: "furniture" });
+  if (!category) {
+    category = await Category.create({
+      name: "Furniture",
+      description: "Furniture Home Products",
+      image: "Furniture-category.webp",
+    });
+  }
+  return category._id;
+};
+
+const initialProducts =[
+  {
+    title: "METALUX ATAMI - Lemari Pakaian | Lemari Pakaian Pintu Kaca | Steel Wadrobe - 2P Black",
+    price: 80000,
+    rating: 4.5,
+    reviews: 88,
+    description: "Lemari pakaian modern dengan pintu kaca dan desain minimalis. Cocok untuk ruang tamu atau kamar tidur anda. Terbuat dari bahan metal berkualitas tinggi.",
+    image: "furniture1.webp",
+    stock: 441,
+    isActive: true
+  },
+  {
+    title: "SOFA TAMU KURSI TAMU SOFA RUANG TAMU SOFA MEWAH L PUTUS SOFA MODERN - PINK",
+    price: 450000,
+    rating: 4.2,
+    reviews: 150,
+    description: "Sofa mewah model L warna pink, cocok untuk ruang tamu modern.",
+    image: "furniture2.webp",
+    stock: 891,
+    isActive: true
+  },
+  {
+    title: "Almari Rak sepatu Retro Minimalis Mewah Kayu Jati",
+    price: 120000,
+    rating: 4.6,
+    reviews: 95,
+    description: "Rak sepatu bergaya retro minimalis dari kayu jati berkualitas.",
+    image: "furniture3.webp",
+    stock:49,
+    isActive: true
+  },
+  {
+    title: "SA MEJA LIPAT KOPER HPL ALUMINIUM-MEJA LIPAT PORTABLE - KAKI BULAT - meja lipat SJ32",
+    price: 110000,
+    rating: 4.0,
+    reviews: 64,
+    description: "Meja lipat koper berbahan HPL aluminium, praktis dan kuat.",
+    image: "furniture4.webp",
+    stock: 134,
+    isActive: true
+  },
+  {
+    title: "Xpanse Furniture Meja Listrik Carbon Fiber - Adjustable Height Workstation",
+    price: 499000,
+    rating: 4.7,
+    reviews: 132,
+    description: "Meja kerja dengan tinggi yang dapat disesuaikan dan desain futuristik.",
+    image: "furniture5.webp",
+    stock: 78,
+    isActive: true
+  },
+  {
+    title: "Rak Sepatu Rak Buku Rak Serbaguna - WALNUT, 3 lapis bubble",
+    price: 99000,
+    rating: 3.9,
+    reviews: 78,
+    description: "Rak serbaguna warna walnut dengan desain 3 tingkat.",
+    image: "furniture6.webp",
+    stock: 49,
+    isActive: true
+  },
+  {
+    title: "MoozSpace Rak Sepatu Besi Susun Tertutup Lemari Sepatu Kokoh Anti Karat - 2Tngkt-Putih50",
+    price: 130000,
+    rating: 4.3,
+    reviews: 114,
+    description: "Lemari sepatu besi susun anti karat dan anti debu, cocok untuk rumah modern.",
+    image: "furniture7.webp",
+    stock: 24,
+    isActive: true
+  },
+  {
+    title: "Meja Makan / Meja Kerja / Meja Kantor - 120x60x75",
+    price: 160000,
+    rating: 4.1,
+    reviews: 90,
+    description: "Meja serbaguna ukuran 120x60x75 cm, ideal untuk berbagai kebutuhan.",
+    image: "furniture8.webp",
+    stock: 10,
+    isActive: true
+  }
+]
+
+
+const seedFurniture = async () => {
+  try {
+    if (!process.env.MONGODB_URI) {
+      throw new Error("MONGODB_URI is not defined in environment variables");
+    }
+
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    // Get fashion category ID
+    const FurnitureCategoryId = await getFurnitureCategory();
+
+    // Update all products with category reference
+    const productsToInsert = initialProducts.map((product) => ({
+      ...product,
+      category: FurnitureCategoryId,
+      seller: null, // You might want to set actual seller IDs here
+      images: [product.image], // Convert single image to images array
+      reviewsCount: product.reviews, // Map reviews to reviewsCount
+    }));
+
+    // Only delete Furniture products
+    await Product.deleteMany({ category: FurnitureCategoryId });
+    const createdProducts = await Product.insertMany(productsToInsert);
+    console.log(`Seeded ${createdProducts.length} Furniture products`);
+
+    await mongoose.connection.close();
+  } catch (error) {
+    console.error("Error seeding Furniture products:", error);
+    process.exit(1);
+  }
+};
+
+// Only run if executed directly
+if (require.main === module) {
+  seedFurniture();
+}
+
+module.exports = { seedFurniture, initialProducts };

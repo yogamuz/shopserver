@@ -1,0 +1,143 @@
+const mongoose = require("mongoose");
+const Product = require("../src/models/Products");
+const Category = require("../src/models/Category");
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+
+const getGadgetsCategory = async () => {
+  let category = await Category.findOne({ name: "gadgets" });
+  if (!category) {
+    category = await Category.create({
+      name: "gadgets",
+      description: "Gadgets Home Products",
+      image: "gadgets-category.webp",
+    });
+  }
+  return category._id;
+};
+
+const initialProducts = [
+  {
+    title: "Laptop Sleeve MacBook",
+    price: 10000000,
+    rating: 5,
+    reviews: 400,
+    description: "Stylish and protective sleeve for your MacBook.",
+    image: "gadgets1.webp",
+    stock: 62,
+    isActive: true,
+  },
+  {
+    title: "Airpods Max",
+    price: 1500000,
+    rating: 5,
+    reviews: 250,
+    description: "High-quality wireless earbuds with noise cancellation.",
+    image: "gadgets2.webp",
+    stock: 99,
+    isActive: true,
+  },
+  {
+    title: "Flower Laptop Sleeve",
+    price: 200000,
+    rating: 5,
+    reviews: 150,
+    description: "Beautifully designed laptop sleeve with floral patterns.",
+    image: "gadgets3.webp",
+    stock: 36,
+    isActive: true,
+  },
+  {
+    title: "Samsung Galaxy Z Fold 4 Second Bekas Resmi Indonesia - Minus",
+    price: 4500000,
+    rating: 5,
+    reviews: 300,
+    description: "Durable and stylish water bottle for everyday use.",
+    image: "gadgets4.webp",
+    stock: 87,
+    isActive: true,
+  },
+  {
+    title: "Laptop Sleeve MacBook",
+    price: 7500000,
+    rating: 5,
+    reviews: 200,
+    description: "Portable Bluetooth speaker with excellent sound quality.",
+    image: "gadgets5.webp",
+    stock: 58,
+    isActive: true,
+  },
+  {
+    title: "Macbook Pro 13",
+    price: 12000000,
+    rating: 5,
+    reviews: 180,
+    description: "Powerful and sleek MacBook Pro with M1 chip.",
+    image: "gadgets6.webp",
+    stock: 49,
+    isActive: true,
+  },
+  {
+    title: "Homepod Mini",
+    price: 3000000,
+    rating: 5,
+    reviews: 100,
+    description:
+      "Smart speaker with excellent sound quality and Siri integration.",
+    image: "gadgets7.webp",
+    stock: 57,
+    isActive: true,
+  },
+  {
+    title: "Ipad Mini",
+    price: 5000000,
+    rating: 5,
+    reviews: 100,
+    description: "Compact and versatile iPad Mini with A15 chip.",
+    image: "gadgets8.webp",
+    stock: 96,
+    isActive: true,
+  },
+];
+
+const seedGadgets = async () => {
+  try {
+    if (!process.env.MONGODB_URI) {
+      throw new Error("MONGODB_URI is not defined in environment variables");
+    }
+
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    // Get fashion category ID
+    const GadgetsCategoryId = await getGadgetsCategory();
+
+    // Update all products with category reference
+    const productsToInsert = initialProducts.map((product) => ({
+      ...product,
+      category: GadgetsCategoryId,
+      seller: null, // You might want to set actual seller IDs here
+      images: [product.image], // Convert single image to images array
+      reviewsCount: product.reviews, // Map reviews to reviewsCount
+    }));
+
+    // Only delete Gadgets products
+    await Product.deleteMany({ category: GadgetsCategoryId });
+    const createdProducts = await Product.insertMany(productsToInsert);
+    console.log(`Seeded ${createdProducts.length} Gadgets products`);
+
+    await mongoose.connection.close();
+  } catch (error) {
+    console.error("Error seeding Gadgets products:", error);
+    process.exit(1);
+  }
+};
+
+// Only run if executed directly
+if (require.main === module) {
+  seedGadgets();
+}
+
+module.exports = { seedGadgets, initialProducts };

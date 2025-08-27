@@ -1,0 +1,38 @@
+const mongoose = require("mongoose");
+require("dotenv").config();
+
+// Import all seed functions
+const { seedBeauty } = require("./beautyProducts");
+const { seedFashion } = require("./fashionProducts");
+const { seedToys } = require("./toysProducts");
+const { seedSneakers } = require("./sneakersProducts");
+const { seedFurniture } = require("./furnitureProducts");
+const { seedGadgets } = require("./gadgetsProducts");
+
+const seedAll = async () => {
+  try {
+    // Connect once for all seeding operations
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log("Connected to MongoDB");
+
+    // Run all seed functions sequentially
+    await seedBeauty();
+    await seedFashion();
+    await seedToys();
+    await seedSneakers();
+    await seedFurniture();
+    await seedGadgets();
+
+    console.log("All products seeded successfully!");
+  } catch (error) {
+    console.error("Error seeding all products:", error);
+    process.exit(1);
+  } finally {
+    mongoose.connection.close();
+  }
+};
+
+seedAll();

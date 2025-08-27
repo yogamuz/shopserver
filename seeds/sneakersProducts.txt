@@ -1,0 +1,143 @@
+const mongoose = require("mongoose");
+const Product = require("../src/models/Products");
+const Category = require("../src/models/Category");
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+
+const getSneakersCategory = async () => {
+  let category = await Category.findOne({ name: "sneakers" });
+  if (!category) {
+    category = await Category.create({
+      name: "Sneakers",
+      description: "Sneakers Home Products",
+      image: "sneakers-category.webp",
+    });
+  }
+  return category._id;
+};
+
+const initialProducts = [
+  {
+    title: "PANARYBODY Sepatu Kasual Pria Fashion Sneakers Cowok Trendy Modis Sepatu Ootd Santai Kerja New TH2403",
+    price: 125000,
+    rating: 4.3,
+    reviews: 72,
+    description: "Sneakers kasual pria yang trendy dan nyaman dipakai sehari-hari.",
+    image: "sneakers1.webp",
+    stock: 76,
+    isActive: true
+  },
+  {
+    title: "Sepatu Sneakers Casual Pria Wanita Olahraga Santai Unisex XLG White Black Gum",
+    price: 139000,
+    rating: 4.5,
+    reviews: 98,
+    description: "Sepatu sneakers unisex cocok untuk olahraga maupun gaya kasual.",
+    image: "sneakers2.webp",
+    stock: 41,
+    isActive: true
+  },
+  {
+    title: "Ortuseight Sepatu Running Hyperglide 2.0 Putih Merah Sol Putih Wave SE Original",
+    price: 289000,
+    rating: 4.8,
+    reviews: 134,
+    description: "Sepatu lari premium dengan desain sporty dan bahan ringan.",
+    image: "sneakers3.webp",
+    stock: 61,
+    isActive: true
+  },
+  {
+    title: "YEZONG UrbanWalk – Sepatu Formal Kantor dengan Sentuhan Kasual! Anti Slip - Hitam",
+    price: 199000,
+    rating: 4.2,
+    reviews: 61,
+    description: "Sepatu formal dengan tampilan kasual, cocok untuk kerja maupun jalan-jalan.",
+    image: "sneakers4.webp",
+    stock: 126,
+    isActive: true
+  },
+  {
+    title: "Toseyog 041 SKY Sepatu Cowok Keren. Sepatu Olahraga, Jalan, Casual Karet Hitam",
+    price: 159000,
+    rating: 4.0,
+    reviews: 88,
+    description: "Sneakers lokal dengan desain sporty dan sol karet tahan lama.",
+    image: "sneakers5.webp",
+    stock: 96,
+    isActive: true
+  },
+  {
+    title: "YEZONG - Sepatu Kulit Asli Kantor Formal Elegan Nyaman, dan Anti-Slip",
+    price: 229000,
+    rating: 4.6,
+    reviews: 77,
+    description: "Sepatu kulit asli untuk pria modern yang tampil elegan dan profesional.",
+    image: "sneakers6.webp",
+    stock: 336,
+    isActive: true
+  },
+  {
+    title: "YEZONG - Sepatu Wanita Trendi Formal Kasual dengan Desain Fleksibel & Fashionable",
+    price: 179000,
+    rating: 4.4,
+    reviews: 84,
+    description: "Sepatu wanita formal kasual dengan kenyamanan dan gaya fleksibel.",
+    image: "sneakers7.webp",
+    stock: 446,
+    isActive: true
+  },
+  {
+    title: "YEZONG ComfortFlex – Sepatu Elegan Kasual, Nyaman Seharian! Anti Slip - Hitam",
+    price: 185000,
+    rating: 4.3,
+    reviews: 69,
+    description: "Sneakers kasual yang nyaman dipakai seharian, desain elegan dan anti slip.",
+    image: "sneakers8.webp",
+    stock: 996,
+    isActive: true
+  }
+];
+
+
+const seedSneakers = async () => {
+  try {
+    if (!process.env.MONGODB_URI) {
+      throw new Error("MONGODB_URI is not defined in environment variables");
+    }
+
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    // Get fashion category ID
+    const SneakersCategoryId = await getSneakersCategory();
+
+    // Update all products with category reference
+    const productsToInsert = initialProducts.map((product) => ({
+      ...product,
+      category: SneakersCategoryId,
+      seller: null, // You might want to set actual seller IDs here
+      images: [product.image], // Convert single image to images array
+      reviewsCount: product.reviews, // Map reviews to reviewsCount
+    }));
+
+    // Only delete Sneakers products
+    await Product.deleteMany({ category: SneakersCategoryId });
+    const createdProducts = await Product.insertMany(productsToInsert);
+    console.log(`Seeded ${createdProducts.length} Sneakers products`);
+
+    await mongoose.connection.close();
+  } catch (error) {
+    console.error("Error seeding Sneakers products:", error);
+    process.exit(1);
+  }
+};
+
+// Only run if executed directly
+if (require.main === module) {
+  seedSneakers();
+}
+
+module.exports = { seedSneakers, initialProducts };
