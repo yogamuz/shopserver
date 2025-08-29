@@ -4,7 +4,10 @@
 
 // CRITICAL: Load environment variables FIRST before any other imports
 // Add { quiet: true } to suppress dotenv logs
-require("dotenv").config({ quiet: true });
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config({ quiet: true });
+}
+
 
 // Now import app after environment variables are loaded
 const app = require("./src/app");
