@@ -39,7 +39,7 @@ logger.info("✅ NODE_ENV:", process.env.NODE_ENV || "developmentsssss");
 
 const app = express();
 if (process.env.NODE_ENV === "production") {
-  app.set("trust proxy", true);
+  app.set("trust proxy", 1);
 }
 
 // Compression middleware - compress all responses
