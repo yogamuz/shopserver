@@ -24,7 +24,6 @@ Thumbs.db
 .vscode/
 
 # Uploads (biar file hasil upload testing tidak ikut repo)
-public/
 
 
 # Build / Test output
