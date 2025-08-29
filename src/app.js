@@ -4,6 +4,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
+const compression = require("compression");
 const path = require("path");
 
 // Import logger AFTER dotenv is loaded
@@ -40,6 +41,9 @@ const app = express();
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", false);
 }
+
+// Compression middleware - compress all responses
+app.use(compression());
 
 // CORS configuration
 app.use(
