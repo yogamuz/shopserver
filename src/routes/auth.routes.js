@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
-
+ const { validateCsrf } = require('../middlewares/auth.middleware');
 // ====================================
 // Middleware: Rate Limiting
 // ====================================
@@ -18,10 +18,10 @@ try {
 // ====================================
 // Public Auth Routes
 // ====================================
-
+router.get('/csrf-token', authController.getCsrfToken); // GET /api/auth/csrf-token
 // Login & Registration
-router.post('/login', rateLimitMiddleware.authLimit, authController.login); // POST /api/auth/login
-router.post('/register', rateLimitMiddleware.authLimit, authController.register); // POST /api/auth/register
+router.post('/login', rateLimitMiddleware.authLimit, validateCsrf, authController.login);
+ router.post('/register', rateLimitMiddleware.authLimit, validateCsrf, authController.register);
 
 // Token refresh
 router.post('/refresh', rateLimitMiddleware.authLimit, authController.refresh);  // POST /api/auth/refresh

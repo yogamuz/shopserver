@@ -1,16 +1,13 @@
 // ========================================
 // FILE: src/controllers/authController.js
 // ========================================
-const { HTTP_STATUS, MESSAGES } = require('../constants/httpStatus');
+const { HTTP_STATUS, MESSAGES } = require("../constants/httpStatus");
 const {
   sendPasswordResetOTP,
   sendPasswordChangedNotification,
 } = require("../services/email.service");
-const {
-  storeOTP,
-  validateOTP,
-  removeOTP,
-} = require("../utils/otpStore");
+const { storeOTP, validateOTP, removeOTP } = require("../utils/otpStore");
+const crypto = require("crypto");
 
 // Import services
 const AuthService = require("../services/auth.service");
@@ -23,6 +20,40 @@ const CookieHelper = require("../utils/cookie-helper");
 const logger = require("../utils/logger");
 
 class AuthController {
+  static async getCsrfToken(req, res) {
+    try {
+      logger.info("🛡️ CSRF token request");
+
+      // Generate random CSRF token
+      const csrfToken = crypto.randomBytes(32).toString("hex");
+
+      // Store in session or in-memory store (sesuai kebutuhan)
+      // Untuk contoh ini, kita set sebagai cookie httpOnly
+      res.cookie("csrf-token", csrfToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 30 * 60 * 1000, // 30 minutes
+      });
+
+      logger.info("✅ CSRF token generated successfully");
+
+      res.status(HTTP_STATUS.OK).json({
+        success: true,
+        csrfToken: csrfToken,
+        message: "CSRF token generated successfully",
+        expiresIn: "30 minutes",
+      });
+    } catch (error) {
+      logger.error("⚡ CSRF token error:", error);
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to generate CSRF token",
+        error: error.message,
+      });
+    }
+  }
+
   static async login(req, res) {
     try {
       const { email, password } = req.body;
@@ -31,7 +62,10 @@ class AuthController {
       const user = await UserService.findByEmail(email);
 
       // 1. Validate user credentials
-      const credentialValidation = await UserService.validateCredentials(user, password);
+      const credentialValidation = await UserService.validateCredentials(
+        user,
+        password
+      );
       if (!credentialValidation.isValid) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
@@ -41,10 +75,13 @@ class AuthController {
 
       // 2. Additional validation for seller role
       let sellerProfile = null;
-      if (user.role === 'seller') {
+      if (user.role === "seller") {
         sellerProfile = await SellerService.getSellerProfile(user._id);
-        const sellerValidation = SellerService.validateSellerForLogin(sellerProfile, user.username);
-        
+        const sellerValidation = SellerService.validateSellerForLogin(
+          sellerProfile,
+          user.username
+        );
+
         if (!sellerValidation.allowLogin) {
           return res.status(HTTP_STATUS.BAD_REQUEST).json({
             success: false,
@@ -55,13 +92,18 @@ class AuthController {
 
       // 3. Token management
       AuthService.removeUserRefreshTokens(user._id.toString());
-      const { accessToken, refreshToken } = AuthService.generateTokens(user._id, user.role);
+      const { accessToken, refreshToken } = AuthService.generateTokens(
+        user._id,
+        user.role
+      );
       AuthService.addRefreshToken(user._id.toString(), refreshToken);
 
       // 4. Set cookies
       CookieHelper.setCookies(res, accessToken, refreshToken, user.role);
 
-      logger.info(`✅ Login successful for user: ${user.username} as ${user.role}`);
+      logger.info(
+        `✅ Login successful for user: ${user.username} as ${user.role}`
+      );
 
       // 5. Audit logging
       await AuditService.logUserActivity(
@@ -73,7 +115,7 @@ class AuthController {
           username: user.username,
           email: user.email,
           role: user.role,
-          loginType: user.role === 'seller' ? 'seller_login' : 'user_login'
+          loginType: user.role === "seller" ? "seller_login" : "user_login",
         }
       );
 
@@ -99,12 +141,12 @@ class AuthController {
     try {
       const { username, email, password, role } = req.body;
 
-      logger.info(`🔍 Registration attempt for: ${email} as ${role || 'user'}`);
+      logger.info(`🔍 Registration attempt for: ${email} as ${role || "user"}`);
 
       // 1. Validate role
-      const allowedRoles = ['user', 'seller'];
-      const userRole = role && allowedRoles.includes(role) ? role : 'user';
-      
+      const allowedRoles = ["user", "seller"];
+      const userRole = role && allowedRoles.includes(role) ? role : "user";
+
       // 2. Check if user exists
       const existingUser = await UserService.findByEmail(email);
       if (existingUser) {
@@ -123,13 +165,18 @@ class AuthController {
       });
 
       // 4. Token management
-      const { accessToken, refreshToken } = AuthService.generateTokens(user._id, user.role);
+      const { accessToken, refreshToken } = AuthService.generateTokens(
+        user._id,
+        user.role
+      );
       AuthService.addRefreshToken(user._id.toString(), refreshToken);
 
       // 5. Set cookies
       CookieHelper.setRegistrationCookies(res, accessToken, refreshToken);
 
-      logger.info(`✅ Registration successful for user: ${user.username} as ${user.role}`);
+      logger.info(
+        `✅ Registration successful for user: ${user.username} as ${user.role}`
+      );
 
       // 6. Audit logging
       await AuditService.logUserActivity(
@@ -141,7 +188,10 @@ class AuthController {
           username: user.username,
           email: user.email,
           role: user.role,
-          registrationType: user.role === 'seller' ? 'seller_registration' : 'user_registration'
+          registrationType:
+            user.role === "seller"
+              ? "seller_registration"
+              : "user_registration",
         }
       );
 
@@ -152,9 +202,10 @@ class AuthController {
         success: true,
         accessToken,
         user: responseData,
-        message: user.role === 'seller' 
-          ? MESSAGES.AUTH.SELLER_REGISTRATION_SUCCESS
-          : MESSAGES.AUTH.USER_REGISTRATION_SUCCESS
+        message:
+          user.role === "seller"
+            ? MESSAGES.AUTH.SELLER_REGISTRATION_SUCCESS
+            : MESSAGES.AUTH.USER_REGISTRATION_SUCCESS,
       });
     } catch (error) {
       logger.error("⚡ Registration error:", error);
@@ -215,22 +266,24 @@ class AuthController {
 
       // 5. Additional validation for seller role
       let sellerProfile = null;
-      if (user.role === 'seller') {
+      if (user.role === "seller") {
         sellerProfile = await SellerService.getSellerProfile(user._id);
         SellerService.validateSellerForRefresh(sellerProfile);
       }
 
       // 6. Generate new access token
       const newAccessToken = AuthService.generateAccessToken(
-        user._id, 
-        user.role, 
-        user.role === 'admin' ? "2h" : "1h"
+        user._id,
+        user.role,
+        user.role === "admin" ? "2h" : "1h"
       );
 
       // 7. Set new access token cookie
       CookieHelper.setAccessTokenCookie(res, newAccessToken, user.role);
 
-      logger.info(`✅ Access token refreshed for ${user.role}: ${user.username}`);
+      logger.info(
+        `✅ Access token refreshed for ${user.role}: ${user.username}`
+      );
 
       // 8. Build and send response
       const responseData = UserService.buildUserResponse(user, sellerProfile);
@@ -263,23 +316,30 @@ class AuthController {
         try {
           const decoded = AuthService.verifyRefreshToken(refreshToken);
           loggedOutUserId = decoded.userId;
-          
+
           // Get user role for better logging
           const user = await UserService.findByIdWithRoleInfo(decoded.userId);
           userRole = user?.role;
-          
+
           // Remove refresh token from valid list
           AuthService.removeRefreshToken(decoded.userId, refreshToken);
-          logger.info(`🗑️ Refresh token removed for ${userRole || 'user'}: ${decoded.userId}`);
+          logger.info(
+            `🗑️ Refresh token removed for ${userRole || "user"}: ${
+              decoded.userId
+            }`
+          );
         } catch (error) {
-          logger.info("⚠️ Could not decode refresh token during logout:", error.message);
+          logger.info(
+            "⚠️ Could not decode refresh token during logout:",
+            error.message
+          );
         }
       }
 
       // Clear cookies
       CookieHelper.clearCookies(res);
 
-      logger.info(`✅ Logout successful for ${userRole || 'user'}`);
+      logger.info(`✅ Logout successful for ${userRole || "user"}`);
 
       // Audit logging for logout
       if (loggedOutUserId) {
@@ -290,7 +350,7 @@ class AuthController {
           req.headers["user-agent"],
           {
             role: userRole,
-            logoutType: userRole === 'seller' ? 'seller_logout' : 'user_logout'
+            logoutType: userRole === "seller" ? "seller_logout" : "user_logout",
           }
         );
       }
@@ -349,7 +409,10 @@ class AuthController {
           return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
             success: false,
             message: MESSAGES.AUTH.EMAIL_SEND_FAILED,
-            error: process.env.NODE_ENV === "development" ? emailResult.error : undefined,
+            error:
+              process.env.NODE_ENV === "development"
+                ? emailResult.error
+                : undefined,
           });
         }
 
@@ -442,9 +505,13 @@ class AuthController {
         const notificationResult = await sendPasswordChangedNotification(user);
 
         if (notificationResult.success) {
-          logger.info(`✅ Password changed notification sent to: ${user.email}`);
+          logger.info(
+            `✅ Password changed notification sent to: ${user.email}`
+          );
         } else {
-          logger.warn(`⚠️ Failed to send password changed notification: ${notificationResult.error}`);
+          logger.warn(
+            `⚠️ Failed to send password changed notification: ${notificationResult.error}`
+          );
         }
       } catch (emailError) {
         logger.error("⚡ Email notification error:", emailError);
@@ -479,3 +546,4 @@ exports.refresh = AuthController.refresh;
 exports.logout = AuthController.logout;
 exports.forgotPassword = AuthController.forgotPassword;
 exports.resetPassword = AuthController.resetPassword;
+exports.getCsrfToken = AuthController.getCsrfToken;

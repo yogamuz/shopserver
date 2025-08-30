@@ -129,6 +129,57 @@ exports.restrictTo = (...roles) => {
   };
 };
 
+exports.validateCsrf = (req, res, next) => {
+  try {
+    logger.info("🛡️ CSRF validation middleware");
+    
+    // Skip untuk GET requests
+    if (req.method === 'GET') {
+      return next();
+    }
+
+    const csrfTokenFromHeader = req.headers['x-csrf-token'] || req.headers['csrf-token'];
+    const csrfTokenFromCookie = req.cookies['csrf-token'];
+
+    if (!csrfTokenFromHeader) {
+      logger.info("❌ No CSRF token in header");
+      return res.status(403).json({
+        success: false,
+        message: 'CSRF token required',
+        hint: 'Include CSRF token in x-csrf-token header'
+      });
+    }
+
+    if (!csrfTokenFromCookie) {
+      logger.info("❌ No CSRF token in cookie");
+      return res.status(403).json({
+        success: false,
+        message: 'CSRF session invalid',
+        hint: 'Get new CSRF token from /api/auth/csrf-token'
+      });
+    }
+
+    if (csrfTokenFromHeader !== csrfTokenFromCookie) {
+      logger.info("❌ CSRF token mismatch");
+      return res.status(403).json({
+        success: false,
+        message: 'CSRF token validation failed',
+        hint: 'Get new CSRF token from /api/auth/csrf-token'
+      });
+    }
+
+    logger.info("✅ CSRF token validated");
+    next();
+  } catch (error) {
+    logger.error("⚡ CSRF validation error:", error);
+    res.status(500).json({
+      success: false,
+      message: 'CSRF validation error',
+      error: error.message
+    });
+  }
+};
+
 // NEW: Optional middleware untuk auto-refresh jika token expired
 exports.autoRefresh = (req, res, next) => {
   // Middleware ini bisa digunakan untuk route yang ingin auto-refresh
