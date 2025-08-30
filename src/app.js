@@ -53,7 +53,7 @@ app.use(
       "http://localhost:5173", // Vite dev server
     ],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Tambahkan OPTIONS
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -61,8 +61,16 @@ app.use(
       "Origin",
       "X-Requested-With",
       "x-session-id",
-      "x-content-type-options", // ⬅️ ini yang bikin error
+      "X-CSRF-Token", // Penting untuk CSRF
+      // Hapus header yang bermasalah atau tambahkan yang hilang
+      // "x-content-type-options", // Hapus ini jika tidak perlu
     ],
+    exposedHeaders: [
+      "X-CSRF-Token",
+      "Access-Control-Allow-Credentials"
+    ],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
   })
 );
 
