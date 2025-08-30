@@ -61,6 +61,7 @@ app.use(
       "Origin",
       "X-Requested-With",
       "x-session-id",
+      "x-content-type-options", // ⬅️ ini yang bikin error
     ],
   })
 );
