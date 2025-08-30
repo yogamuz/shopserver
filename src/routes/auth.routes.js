@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
-const { validateCsrf } = require('../middlewares/auth.middleware');
+// const { validateCsrf } = require('../middlewares/auth.middleware');
 
 // ====================================
 // Middleware: Rate Limiting
@@ -34,11 +34,11 @@ router.post('/login', rateLimitMiddleware.authLimit,  authController.login);
 router.post('/register', rateLimitMiddleware.authLimit,  authController.register);
 
 // Password reset - BUTUH CSRF token untuk security
-router.post('/forgot-password', rateLimitMiddleware.authLimit, validateCsrf, authController.forgotPassword);
-router.put('/reset-password', rateLimitMiddleware.authLimit, validateCsrf, authController.resetPassword);
+router.post('/forgot-password', rateLimitMiddleware.authLimit, authController.forgotPassword);
+router.put('/reset-password', rateLimitMiddleware.authLimit,  authController.resetPassword);
 
 // Logout - BUTUH CSRF token 
-router.post('/logout', validateCsrf, authController.logout);
+router.post('/logout', authController.logout);
 
 // ====================================
 // Protected Routes
