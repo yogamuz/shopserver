@@ -48,12 +48,24 @@ app.use(compression());
 // CORS configuration
 app.use(
   cors({
-    origin: [
-      process.env.CLIENT_URL || "http://localhost:3000",
-      "http://localhost:5173", // Vite dev server
-    ],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        process.env.CLIENT_URL || "http://localhost:3000",
+        "http://localhost:5173", // Vite dev server
+        "https://localhost:5173", // HTTPS version
+      ];
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Tambahkan OPTIONS
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -61,16 +73,16 @@ app.use(
       "Origin",
       "X-Requested-With",
       "x-session-id",
-      "X-CSRF-Token", // Penting untuk CSRF
-      // Hapus header yang bermasalah atau tambahkan yang hilang
-      // "x-content-type-options", // Hapus ini jika tidak perlu
+      "X-CSRF-Token",
+      "Cache-Control",
+      "Pragma"
     ],
     exposedHeaders: [
       "X-CSRF-Token",
-      "Access-Control-Allow-Credentials"
+      "Set-Cookie"
     ],
     preflightContinue: false,
-    optionsSuccessStatus: 204
+    optionsSuccessStatus: 200 // Ganti dari 204 ke 200
   })
 );
 
