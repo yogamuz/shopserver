@@ -46,6 +46,7 @@ if (process.env.NODE_ENV === "production") {
 app.use(compression());
 
 // CORS configuration
+// CORS configuration - PERBAIKAN FINAL
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -56,11 +57,21 @@ app.use(
         process.env.CLIENT_URL || "http://localhost:3000",
         "http://localhost:5173", // Vite dev server
         "https://localhost:5173", // HTTPS version
+        "http://127.0.0.1:5173", // Alternative localhost
+        "https://127.0.0.1:5173", // HTTPS alternative
       ];
+      
+      // PERBAIKAN: Allow semua localhost untuk development
+      if (process.env.NODE_ENV !== "production") {
+        if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+          return callback(null, true);
+        }
+      }
       
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.log("CORS blocked origin:", origin); // Debug log
         callback(new Error('Not allowed by CORS'));
       }
     },
@@ -68,7 +79,7 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
       "Content-Type",
-      "Authorization",
+      "Authorization", 
       "Accept",
       "Origin",
       "X-Requested-With",
@@ -82,7 +93,7 @@ app.use(
       "Set-Cookie"
     ],
     preflightContinue: false,
-    optionsSuccessStatus: 200 // Ganti dari 204 ke 200
+    optionsSuccessStatus: 200
   })
 );
 

@@ -3,7 +3,8 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
- const { validateCsrf } = require('../middlewares/auth.middleware');
+const { validateCsrf } = require('../middlewares/auth.middleware');
+
 // ====================================
 // Middleware: Rate Limiting
 // ====================================
@@ -16,28 +17,35 @@ try {
 }
 
 // ====================================
-// Public Auth Routes
+// Public Auth Routes (NO CSRF REQUIRED)
 // ====================================
-router.get('/csrf-token', authController.getCsrfToken); // GET /api/auth/csrf-token
-// Login & Registration
+
+// CSRF token endpoint - HARUS PUBLIC (tidak butuh CSRF)
+router.get('/csrf-token', authController.getCsrfToken); 
+
+// Token refresh - biasanya tidak butuh CSRF karena pakai httpOnly cookie
+router.post('/refresh', rateLimitMiddleware.authLimit, authController.refresh);
+
+// ====================================
+// Auth Routes WITH CSRF Protection
+// ====================================
+
+// Login & Registration - BUTUH CSRF token
 router.post('/login', rateLimitMiddleware.authLimit, validateCsrf, authController.login);
- router.post('/register', rateLimitMiddleware.authLimit, validateCsrf, authController.register);
+router.post('/register', rateLimitMiddleware.authLimit, validateCsrf, authController.register);
 
-// Token refresh
-router.post('/refresh', rateLimitMiddleware.authLimit, authController.refresh);  // POST /api/auth/refresh
+// Password reset - BUTUH CSRF token untuk security
+router.post('/forgot-password', rateLimitMiddleware.authLimit, validateCsrf, authController.forgotPassword);
+router.put('/reset-password', rateLimitMiddleware.authLimit, validateCsrf, authController.resetPassword);
 
-// Password reset (OTP)
-router.post('/forgot-password', rateLimitMiddleware.authLimit, authController.forgotPassword); // POST /api/auth/forgot-password
-router.put('/reset-password', rateLimitMiddleware.authLimit, authController.resetPassword); // PUT /api/auth/reeset-password
-
-// Logout
-router.post('/logout', authController.logout);  // POST /api/auth/logout
+// Logout - BUTUH CSRF token 
+router.post('/logout', validateCsrf, authController.logout);
 
 // ====================================
 // Protected Routes
 // ====================================
 
-// Verify token  // POST /api/auth/verify
+// Verify token  
 router.get('/verify', authMiddleware.protect, (req, res) => {
   res.json({
     success: true,
