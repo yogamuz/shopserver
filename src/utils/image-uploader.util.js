@@ -207,7 +207,7 @@ const uploadImage = async (file, config = {}) => {
 
     // ✅ FIXED: Generate URL without /public/ prefix since express.static serves from 'public' folder
     // ✅ FIXED: Generate correct URL path that matches express.static serving
-    const baseUrl = process.env.BASE_URL || "https://shopcartserver-production.up.railway.app";
+    const baseUrl = process.env.BASE_URL;
     // Remove any leading slash and ensure forward slashes
     const cleanPath = relativePath.replace(/\\/g, "/").replace(/^\/+/, "");
     const imageUrl = `${baseUrl}/${cleanPath}`;
