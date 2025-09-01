@@ -2,10 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const categoryController = require('../controllers/category.controller');
-const { seedCategories, newCategories } = require('../../seeds/seedCategories');
 const authMiddleware = require('../middlewares/auth.middleware');
-const Category = require('../models/category.model');
-const Product = require('../models/products.model');
 
 
 

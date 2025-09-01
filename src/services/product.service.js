@@ -1,4 +1,4 @@
-// services/productService.js
+// services/productService.js (Complete Enhanced Version)
 const Product = require('../models/products.model');
 const { HTTP_STATUS, MESSAGES } = require('../constants/httpStatus');
 const { 
@@ -6,31 +6,101 @@ const {
   buildSortObject, 
   calculatePagination, 
   buildPaginationResponse,
-  buildCategoryFilter 
+  buildCategoryFilter,
+  buildPriceFilter,
+  buildSellerFilter,
+  validateQueryParams
 } = require('../utils/query.util');
 const logger = require('../utils/logger');
 
 /**
- * Get all products with filtering, searching, and pagination
+ * Get all products with advanced filtering, searching, and pagination
  * @param {Object} params - Query parameters
- * @returns {Object} - Products data with pagination
+ * @returns {Object} - Products data with pagination and filters
  */
 const getAllProductsService = async (params) => {
+  // Define allowed parameters for validation
+  const allowedParams = [
+    'category', 'page', 'limit', 'search', 'sortBy', 'sortOrder', 
+    'minPrice', 'maxPrice', 'isActive', 'sellerId', 'rating',
+    'inStock', 'featured'
+  ];
+  
+  // Validate query parameters
+  const validation = validateQueryParams(params, allowedParams);
+  if (!validation.isValid) {
+    const error = new Error('Invalid query parameters');
+    error.statusCode = HTTP_STATUS.BAD_REQUEST;
+    error.details = validation.errors;
+    throw error;
+  }
+  
   const { 
     category, 
     page = 1, 
     limit = 20,
     search,
     sortBy = 'createdAt',
-    sortOrder = 'desc'
-  } = params;
+    sortOrder = 'desc',
+    minPrice,
+    maxPrice,
+    isActive = true,
+    sellerId,
+    rating,
+    inStock,
+    featured
+  } = validation.sanitizedParams;
   
-  // Build query object
-  let query = {};
+  // Build base query object
+  let query = { 
+    isActive: isActive === true || isActive === 'true',
+    deletedAt: null // Exclude soft-deleted products
+  };
   
-  // Category filter
-  const categoryFilter = buildCategoryFilter(category);
+  // Category filter - ENHANCED TO SUPPORT NAME AND OBJECTID
+  const categoryFilter = await buildCategoryFilter(category);
+  if (categoryFilter.categoryNotFound) {
+    return {
+      products: [],
+      pagination: buildPaginationResponse(0, page, limit),
+      filters: { 
+        category, 
+        search: search || null, 
+        categoryNotFound: true,
+        message: 'Category not found or inactive'
+      }
+    };
+  }
   query = { ...query, ...categoryFilter };
+  
+  // Price filter
+  const priceFilter = buildPriceFilter(minPrice, maxPrice);
+  if (Object.keys(priceFilter).length > 0) {
+    query = { ...query, ...priceFilter };
+  }
+  
+  // Seller filter (simplified since we removed async from buildSellerFilter)
+  const sellerFilter = buildSellerFilter(sellerId);
+  if (Object.keys(sellerFilter).length > 0) {
+    query = { ...query, ...sellerFilter };
+  }
+  
+  // Rating filter
+  if (rating !== undefined) {
+    query.rating = { $gte: parseFloat(rating) };
+  }
+  
+  // Stock filter
+  if (inStock === 'true') {
+    query.stock = { $gt: 0 };
+  } else if (inStock === 'false') {
+    query.stock = { $eq: 0 };
+  }
+  
+  // Featured filter (if you have featured field)
+  if (featured === 'true') {
+    query.featured = true;
+  }
   
   // Search filter
   const searchQuery = buildSearchQuery(search, ['title', 'description']);
@@ -44,37 +114,66 @@ const getAllProductsService = async (params) => {
   // Build sort object
   const sort = buildSortObject(sortBy, sortOrder);
   
-  // Execute query with pagination
+  // Execute query with population
   const products = await Product.find(query)
     .sort(sort)
     .skip(skip)
     .limit(parsedLimit)
-    .lean(); // Use lean() for better performance
+    .populate('category', 'name description image')
+    .populate('sellerId', 'storeName storeSlug logo email') // Enhanced seller info
+    .lean();
   
   // Get total count for pagination
   const total = await Product.countDocuments(query);
   
   // Log for debugging
   logger.info(`📦 Products API: Found ${products.length}/${total} products`);
-  logger.info(`🔍 Query:`, { category, search, page, limit });
+  logger.info(`🔍 Applied Filters:`, { 
+    category, search, minPrice, maxPrice, sellerId, rating, inStock, page, limit 
+  });
+  logger.info(`🔍 Final MongoDB Query:`, JSON.stringify(query, null, 2));
   
   return {
     products,
     pagination: buildPaginationResponse(total, parsedPage, parsedLimit),
     filters: {
       category: category || 'all',
-      search: search || null
+      search: search || null,
+      minPrice: minPrice ? parseFloat(minPrice) : null,
+      maxPrice: maxPrice ? parseFloat(maxPrice) : null,
+      sellerId: sellerId || null,
+      rating: rating ? parseFloat(rating) : null,
+      inStock: inStock || null,
+      isActive
+    },
+    summary: {
+      totalProducts: total,
+      currentPage: parsedPage,
+      hasFilters: !!(category || search || minPrice || maxPrice || sellerId || rating || inStock)
     }
   };
 };
 
 /**
- * Get single product by ID
+ * Get single product by ID with full details
  * @param {string} id - Product ID
- * @returns {Object} - Product data
+ * @param {Object} options - Additional options
+ * @returns {Object} - Product data with related info
  */
-const getProductByIdService = async (id) => {
-  const product = await Product.findById(id).lean();
+const getProductByIdService = async (id, options = {}) => {
+  const { includeDeleted = false } = options;
+  
+  let query = Product.findById(id);
+  
+  // Include deleted products if requested
+  if (includeDeleted) {
+    query = query.setOptions({ includeDeleted: true });
+  }
+  
+  const product = await query
+    .populate('category', 'name description image')
+    .populate('sellerId', 'storeName storeSlug logo email contactInfo')
+    .lean();
   
   if (!product) {
     const error = new Error(MESSAGES.PRODUCT.NOT_FOUND);
@@ -82,65 +181,111 @@ const getProductByIdService = async (id) => {
     throw error;
   }
   
-  logger.info(`📦 Single Product: Found product ${id}`);
+  // Get similar products (same category, exclude current)
+  const similarProducts = await Product.find({
+    category: product.category._id,
+    _id: { $ne: product._id },
+    isActive: true,
+    deletedAt: null
+  })
+  .limit(4)
+  .populate('category', 'name')
+  .lean();
   
-  return product;
+  logger.info(`📦 Single Product: Found product ${id} with ${similarProducts.length} similar products`);
+  
+  return {
+    ...product,
+    similarProducts
+  };
 };
 
 /**
- * Create new product
+ * Create new product with seller assignment
  * @param {Object} productData - Product data
  * @param {Object} user - User object from req.user
  * @returns {Object} - Created product
  */
 const createProductService = async (productData, user) => {
-  // Add user who created the product
+  // Add user context
   if (user) {
     productData.createdBy = user.id;
+    
+    // If user is seller, assign sellerId
+    if (user.role === 'seller') {
+      productData.sellerId = user.sellerProfile || user.id;
+    }
   }
   
   const product = new Product(productData);
   await product.save();
   
-  logger.info(`✅ Product created: ${product._id}`);
+  // Populate for response
+  await product.populate([
+    { path: 'category', select: 'name description image' },
+    { path: 'sellerId', select: 'storeName storeSlug logo' }
+  ]);
+  
+  logger.info(`✅ Product created: ${product._id} - ${product.title} (by: ${user?.email || 'system'})`);
   
   return product;
 };
 
 /**
- * Update product by ID
+ * Update product with authorization check
  * @param {string} id - Product ID
  * @param {Object} updateData - Update data
+ * @param {Object} user - User object from req.user
  * @returns {Object} - Updated product
  */
-const updateProductService = async (id, updateData) => {
-  // Add updated timestamp
+const updateProductService = async (id, updateData, user) => {
+  // First check if product exists and user has permission
+  const existingProduct = await Product.findById(id);
+  
+  if (!existingProduct) {
+    const error = new Error(MESSAGES.PRODUCT.NOT_FOUND);
+    error.statusCode = HTTP_STATUS.NOT_FOUND;
+    throw error;
+  }
+  
+  // Authorization check: seller can only update their own products
+  if (user.role === 'seller' && existingProduct.sellerId?.toString() !== user.id) {
+    const error = new Error('You can only update your own products');
+    error.statusCode = HTTP_STATUS.FORBIDDEN;
+    throw error;
+  }
+  
+  // Add update metadata
   updateData.updatedAt = new Date();
+  if (user) {
+    updateData.updatedBy = user.id;
+  }
   
   const product = await Product.findByIdAndUpdate(
     id,
     updateData,
     { new: true, runValidators: true }
-  );
+  ).populate([
+    { path: 'category', select: 'name description image' },
+    { path: 'sellerId', select: 'storeName storeSlug logo' }
+  ]);
   
-  if (!product) {
-    const error = new Error(MESSAGES.PRODUCT.NOT_FOUND);
-    error.statusCode = HTTP_STATUS.NOT_FOUND;
-    throw error;
-  }
-  
-  logger.info(`✅ Product updated: ${id}`);
+  logger.info(`✅ Product updated: ${id} - ${product.title} (by: ${user?.email || 'system'})`);
   
   return product;
 };
 
 /**
- * Delete product by ID
+ * Delete product (soft delete by default, hard delete for admin)
  * @param {string} id - Product ID
+ * @param {Object} user - User object from req.user
+ * @param {Object} options - Delete options
  * @returns {Object} - Deletion result
  */
-const deleteProductService = async (id) => {
-  const product = await Product.findByIdAndDelete(id);
+const deleteProductService = async (id, user, options = {}) => {
+  const { hardDelete = false } = options;
+  
+  const product = await Product.findById(id);
   
   if (!product) {
     const error = new Error(MESSAGES.PRODUCT.NOT_FOUND);
@@ -148,9 +293,28 @@ const deleteProductService = async (id) => {
     throw error;
   }
   
-  logger.info(`🗑️ Product deleted: ${id}`);
+  // Authorization check: seller can only delete their own products
+  if (user.role === 'seller' && product.sellerId?.toString() !== user.id) {
+    const error = new Error('You can only delete your own products');
+    error.statusCode = HTTP_STATUS.FORBIDDEN;
+    throw error;
+  }
   
-  return { deletedProduct: product.title || product._id };
+  let deletionResult;
+  
+  if (hardDelete && user.role === 'admin') {
+    // Hard delete (only admin)
+    await Product.findByIdAndDelete(id);
+    deletionResult = { type: 'hard', product: product.title };
+    logger.info(`🗑️ Product HARD deleted: ${id} - ${product.title} (by: ${user?.email})`);
+  } else {
+    // Soft delete (default)
+    await product.softDelete();
+    deletionResult = { type: 'soft', product: product.title };
+    logger.info(`🗑️ Product SOFT deleted: ${id} - ${product.title} (by: ${user?.email})`);
+  }
+  
+  return deletionResult;
 };
 
 module.exports = {

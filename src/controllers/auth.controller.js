@@ -20,39 +20,7 @@ const CookieHelper = require("../utils/cookie-helper");
 const logger = require("../utils/logger");
 
 class AuthController {
-  static async getCsrfToken(req, res) {
-    try {
-      logger.info("🛡️ CSRF token request");
 
-      // Generate random CSRF token
-      const csrfToken = crypto.randomBytes(32).toString("hex");
-
-      // Store in session or in-memory store (sesuai kebutuhan)
-      // Untuk contoh ini, kita set sebagai cookie httpOnly
-      res.cookie("csrf-token", csrfToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 30 * 60 * 1000, // 30 minutes
-      });
-
-      logger.info("✅ CSRF token generated successfully");
-
-      res.status(HTTP_STATUS.OK).json({
-        success: true,
-        csrfToken: csrfToken,
-        message: "CSRF token generated successfully",
-        expiresIn: "30 minutes",
-      });
-    } catch (error) {
-      logger.error("⚡ CSRF token error:", error);
-      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: "Failed to generate CSRF token",
-        error: error.message,
-      });
-    }
-  }
 
   static async login(req, res) {
     try {

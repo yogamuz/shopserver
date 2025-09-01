@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const productController = require("../controllers/product.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
-const Product = require("../models/products.model");
 
 // Public routes (NO AUTHENTICATION REQUIRED)
 router.get("/", productController.getAllProducts);
