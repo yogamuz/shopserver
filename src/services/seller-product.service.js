@@ -5,8 +5,7 @@ const mongoose = require("mongoose");
 const imageUploader = require("../utils/image-uploader.util");
 
 class SellerProductService {
-
-    /**
+  /**
    * Generate default image object with alt text
    * @param {string} title - Product title for alt text
    * @param {string|null} imageUrl - Image URL if exists
@@ -15,10 +14,10 @@ class SellerProductService {
   generateImageWithAlt(title, imageUrl = null) {
     return {
       url: imageUrl,
-      alt: title || 'Product Image',
+      alt: title || "Product Image",
       hasImage: !!imageUrl,
       // Optional: Add placeholder image URL
-      placeholder: imageUrl ? null : '/images/placeholder-product.png'
+      placeholder: imageUrl ? null : "/images/placeholder-product.png",
     };
   }
   /**
@@ -28,7 +27,7 @@ class SellerProductService {
    */
   async validateCategory(categoryId) {
     const category = await Category.findById(categoryId);
-    return (category && category.isActive) ? category : null;
+    return category && category.isActive ? category : null;
   }
 
   /**
@@ -37,7 +36,7 @@ class SellerProductService {
    * @param {Object} productData - Product data
    * @returns {Promise<Object>} Created product
    */
-async createProduct(sellerId, productData) {
+  async createProduct(sellerId, productData) {
     const { title, description, price, category, stock, image } = productData;
 
     // Create product with seller reference
@@ -48,15 +47,18 @@ async createProduct(sellerId, productData) {
       category,
       image: image || null, // Allow null images
       stock,
-      sellerId
+      sellerId,
     });
 
     await product.save();
-    await product.populate(['category', 'sellerId']);
+    await product.populate(["category", "sellerId"]);
 
     // Transform response to include imageWithAlt
     const productResponse = product.toObject();
-    productResponse.imageWithAlt = this.generateImageWithAlt(product.title, product.image);
+    productResponse.imageWithAlt = this.generateImageWithAlt(
+      product.title,
+      product.image
+    );
 
     return productResponse;
   }
@@ -67,51 +69,74 @@ async createProduct(sellerId, productData) {
    * @param {Object} options - Query options
    * @returns {Promise<Object>} Products with pagination
    */
-   async getSellerProducts(sellerId, options = {}) {
-    const { 
-      page = 1, 
-      limit = 12, 
-      sortBy = 'createdAt', 
-      sortOrder = -1,
-      status = 'all',
+  async getSellerProducts(sellerId, options = {}) {
+    const {
+      page = 1,
+      limit = 12,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      status = "all",
       category,
-      search
+      search,
+      minPrice,
+      maxPrice,
+      inStock,
     } = options;
 
     // Build match criteria
-    const match = { sellerId };
+    const match = { sellerId: mongoose.Types.ObjectId(sellerId) };
 
-    if (status !== 'all') {
-      if (status === 'active') {
-        match.isActive = true;
-      } else if (status === 'inactive') {
-        match.isActive = false;
-      }
+    // Status filter
+    if (status !== "all") {
+      match.isActive = status === "active";
     }
 
+    // Category filter
     if (category) {
       match.category = mongoose.Types.ObjectId(category);
     }
 
+    // Price filters
+    if (minPrice !== undefined) {
+      match.price = { $gte: parseFloat(minPrice) };
+    }
+    if (maxPrice !== undefined) {
+      match.price = { ...match.price, $lte: parseFloat(maxPrice) };
+    }
+
+    // Stock filter
+    if (inStock === "true") {
+      match.stock = { $gt: 0 };
+    } else if (inStock === "false") {
+      match.stock = { $eq: 0 };
+    }
+
+    // Search filter
     if (search) {
       match.$or = [
-        { title: new RegExp(search, 'i') },
-        { description: new RegExp(search, 'i') }
+        { title: new RegExp(search, "i") },
+        { description: new RegExp(search, "i") },
       ];
     }
 
+    // Sort direction
+    const sortDirection = sortOrder === "desc" ? -1 : 1;
+
     // Get products with pagination
     const products = await Product.find(match)
-      .sort({ [sortBy]: parseInt(sortOrder) })
+      .sort({ [sortBy]: sortDirection })
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit))
-      .populate('category')
-      .populate('sellerId', 'storeName storeSlug');
+      .populate("category")
+      .populate("sellerId", "storeName storeSlug");
 
     // Transform products to include imageWithAlt
-    const transformedProducts = products.map(product => {
+    const transformedProducts = products.map((product) => {
       const productObj = product.toObject();
-      productObj.imageWithAlt = this.generateImageWithAlt(product.title, product.image);
+      productObj.imageWithAlt = this.generateImageWithAlt(
+        product.title,
+        product.image
+      );
       return productObj;
     });
 
@@ -124,8 +149,10 @@ async createProduct(sellerId, productData) {
         currentPage: parseInt(page),
         totalPages: Math.ceil(totalProducts / parseInt(limit)),
         totalItems: totalProducts,
-        itemsPerPage: parseInt(limit)
-      }
+        itemsPerPage: parseInt(limit),
+        hasNext: parseInt(page) < Math.ceil(totalProducts / parseInt(limit)),
+        hasPrev: parseInt(page) > 1,
+      },
     };
   }
 
@@ -135,20 +162,23 @@ async createProduct(sellerId, productData) {
    * @param {string} sellerId - Seller profile ID
    * @returns {Promise<Object|null>} Product or null
    */
- async getSellerProduct(productId, sellerId) {
+  async getSellerProduct(productId, sellerId) {
     const product = await Product.findOne({
       _id: productId,
-      sellerId
+      sellerId,
     })
-    .populate('category')
-    .populate('sellerId', 'storeName storeSlug');
+      .populate("category")
+      .populate("sellerId", "storeName storeSlug");
 
     if (!product) return null;
 
     // Transform to include imageWithAlt
     const productObj = product.toObject();
-    productObj.imageWithAlt = this.generateImageWithAlt(product.title, product.image);
-    
+    productObj.imageWithAlt = this.generateImageWithAlt(
+      product.title,
+      product.image
+    );
+
     return productObj;
   }
 
@@ -162,7 +192,7 @@ async createProduct(sellerId, productData) {
   async updateProduct(productId, sellerId, updates) {
     const product = await Product.findOne({
       _id: productId,
-      sellerId
+      sellerId,
     });
 
     if (!product) {
@@ -170,14 +200,14 @@ async createProduct(sellerId, productData) {
     }
 
     // Apply updates
-    Object.keys(updates).forEach(key => {
-      if (key !== 'sellerId' && key !== '_id') {
+    Object.keys(updates).forEach((key) => {
+      if (key !== "sellerId" && key !== "_id") {
         product[key] = updates[key];
       }
     });
 
     await product.save();
-    await product.populate(['category', 'sellerId']);
+    await product.populate(["category", "sellerId"]);
 
     return product;
   }
@@ -193,12 +223,11 @@ async createProduct(sellerId, productData) {
     return await Product.findOneAndUpdate(
       {
         _id: productId,
-        sellerId
+        sellerId,
       },
       { isActive: Boolean(isActive) },
       { new: true }
-    )
-    .populate(['category', 'sellerId']);
+    ).populate(["category", "sellerId"]);
   }
 
   /**
@@ -210,7 +239,7 @@ async createProduct(sellerId, productData) {
   async deleteProduct(productId, sellerId) {
     const product = await Product.findOneAndDelete({
       _id: productId,
-      sellerId
+      sellerId,
     });
 
     if (product && product.image) {
@@ -231,7 +260,7 @@ async createProduct(sellerId, productData) {
     return await Product.updateMany(
       {
         _id: { $in: productIds },
-        sellerId
+        sellerId,
       },
       { isActive: Boolean(isActive) }
     );
@@ -247,13 +276,13 @@ async createProduct(sellerId, productData) {
     // Get products to delete (for image cleanup)
     const productsToDelete = await Product.find({
       _id: { $in: productIds },
-      sellerId
+      sellerId,
     });
 
     // Delete products
     const result = await Product.deleteMany({
       _id: { $in: productIds },
-      sellerId
+      sellerId,
     });
 
     // Delete associated images
@@ -276,7 +305,7 @@ async createProduct(sellerId, productData) {
   async uploadProductImage(productId, sellerId, file) {
     const product = await Product.findOne({
       _id: productId,
-      sellerId
+      sellerId,
     });
 
     if (!product) {
@@ -287,7 +316,7 @@ async createProduct(sellerId, productData) {
     const uploadResult = await imageUploader.uploadImage(file, {
       folder: `products/${productId}`,
       maxSize: 3 * 1024 * 1024, // 3MB
-      dimensions: { width: 800, height: 600 }
+      dimensions: { width: 800, height: 600 },
     });
 
     if (!uploadResult.success) {
@@ -307,7 +336,7 @@ async createProduct(sellerId, productData) {
       success: true,
       imageUrl: uploadResult.imageUrl,
       metadata: uploadResult.metadata,
-      productTitle: product.title
+      productTitle: product.title,
     };
   }
 
@@ -323,30 +352,30 @@ async createProduct(sellerId, productData) {
       activeProducts,
       inactiveProducts,
       outOfStockProducts,
-      lowStockProducts
+      lowStockProducts,
     ] = await Promise.all([
       Product.countDocuments({ sellerId }),
       Product.countDocuments({ sellerId, isActive: true }),
       Product.countDocuments({ sellerId, isActive: false }),
       Product.countDocuments({ sellerId, stock: 0 }),
-      Product.countDocuments({ sellerId, stock: { $lte: 10, $gt: 0 } })
+      Product.countDocuments({ sellerId, stock: { $lte: 10, $gt: 0 } }),
     ]);
 
     // Get recent products
     const recentProducts = await Product.find({ sellerId })
       .sort({ createdAt: -1 })
       .limit(5)
-      .populate('category', 'name');
+      .populate("category", "name");
 
     // Get top products by rating
-    const topProducts = await Product.find({ 
+    const topProducts = await Product.find({
       sellerId,
       isActive: true,
-      rating: { $gt: 0 }
+      rating: { $gt: 0 },
     })
-    .sort({ rating: -1, reviews: -1 })
-    .limit(5)
-    .populate('category', 'name');
+      .sort({ rating: -1, reviews: -1 })
+      .limit(5)
+      .populate("category", "name");
 
     // Calculate average rating
     const ratingStats = await Product.aggregate([
@@ -355,9 +384,9 @@ async createProduct(sellerId, productData) {
         $group: {
           _id: null,
           averageRating: { $avg: "$rating" },
-          totalReviews: { $sum: "$reviews" }
-        }
-      }
+          totalReviews: { $sum: "$reviews" },
+        },
+      },
     ]);
 
     return {
@@ -366,18 +395,18 @@ async createProduct(sellerId, productData) {
         active: activeProducts,
         inactive: inactiveProducts,
         outOfStock: outOfStockProducts,
-        lowStock: lowStockProducts
+        lowStock: lowStockProducts,
       },
       performance: {
         averageRating: ratingStats[0]?.averageRating || 0,
-        totalReviews: ratingStats[0]?.totalReviews || 0
+        totalReviews: ratingStats[0]?.totalReviews || 0,
       },
       recent: {
-        products: recentProducts
+        products: recentProducts,
       },
       top: {
-        products: topProducts
-      }
+        products: topProducts,
+      },
     };
   }
 
@@ -387,22 +416,22 @@ async createProduct(sellerId, productData) {
    * @param {string} period - Time period for stats
    * @returns {Promise<Object>} Product statistics
    */
-  async getProductStats(sellerId, period = '30d') {
+  async getProductStats(sellerId, period = "30d") {
     // Calculate date range
     const now = new Date();
     let startDate;
-    
+
     switch (period) {
-      case '7d':
+      case "7d":
         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         break;
-      case '30d':
+      case "30d":
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         break;
-      case '90d':
+      case "90d":
         startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
         break;
-      case '1y':
+      case "1y":
         startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
         break;
       default:
@@ -412,7 +441,7 @@ async createProduct(sellerId, productData) {
     // Get products created in period
     const productsInPeriod = await Product.find({
       sellerId,
-      createdAt: { $gte: startDate }
+      createdAt: { $gte: startDate },
     });
 
     // Group by category
@@ -420,26 +449,26 @@ async createProduct(sellerId, productData) {
       { $match: { sellerId } },
       {
         $lookup: {
-          from: 'categories',
-          localField: 'category',
-          foreignField: '_id',
-          as: 'categoryInfo'
-        }
+          from: "categories",
+          localField: "category",
+          foreignField: "_id",
+          as: "categoryInfo",
+        },
       },
-      { $unwind: '$categoryInfo' },
+      { $unwind: "$categoryInfo" },
       {
         $group: {
-          _id: '$category',
-          categoryName: { $first: '$categoryInfo.name' },
+          _id: "$category",
+          categoryName: { $first: "$categoryInfo.name" },
           count: { $sum: 1 },
           activeCount: {
-            $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] }
+            $sum: { $cond: [{ $eq: ["$isActive", true] }, 1, 0] },
           },
-          averagePrice: { $avg: '$price' },
-          totalStock: { $sum: '$stock' }
-        }
+          averagePrice: { $avg: "$price" },
+          totalStock: { $sum: "$stock" },
+        },
       },
-      { $sort: { count: -1 } }
+      { $sort: { count: -1 } },
     ]);
 
     // Price range analysis
@@ -448,32 +477,34 @@ async createProduct(sellerId, productData) {
       {
         $group: {
           _id: null,
-          minPrice: { $min: '$price' },
-          maxPrice: { $max: '$price' },
-          averagePrice: { $avg: '$price' },
-          totalValue: { $sum: { $multiply: ['$price', '$stock'] } }
-        }
-      }
+          minPrice: { $min: "$price" },
+          maxPrice: { $max: "$price" },
+          averagePrice: { $avg: "$price" },
+          totalValue: { $sum: { $multiply: ["$price", "$stock"] } },
+        },
+      },
     ]);
 
     // Monthly trend (last 12 months)
     const monthlyTrend = await Product.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           sellerId,
-          createdAt: { $gte: new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000) }
-        } 
+          createdAt: {
+            $gte: new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000),
+          },
+        },
       },
       {
         $group: {
           _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' }
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
           },
-          count: { $sum: 1 }
-        }
+          count: { $sum: 1 },
+        },
       },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
     ]);
 
     return {
@@ -485,11 +516,11 @@ async createProduct(sellerId, productData) {
         minPrice: 0,
         maxPrice: 0,
         averagePrice: 0,
-        totalValue: 0
+        totalValue: 0,
       },
       trends: {
-        monthly: monthlyTrend
-      }
+        monthly: monthlyTrend,
+      },
     };
   }
 
@@ -499,54 +530,71 @@ async createProduct(sellerId, productData) {
    * @param {Object} options - Query options
    * @returns {Promise<Object>} Store products with pagination
    */
- async getStoreProducts(sellerId, options = {}) {
-    const { 
-      page = 1, 
-      limit = 12, 
-      sortBy = 'createdAt', 
-      sortOrder = -1,
+  // UPDATE function getStoreProducts - enhance dengan query params
+  async getStoreProducts(sellerId, options = {}) {
+    const {
+      page = 1,
+      limit = 12,
+      sortBy = "createdAt",
+      sortOrder = "desc",
       category,
       minPrice,
       maxPrice,
-      search
+      search,
+      inStock,
     } = options;
 
     // Build match criteria
-    const match = { 
-      sellerId,
-      isActive: true
+    const match = {
+      sellerId: mongoose.Types.ObjectId(sellerId),
+      isActive: true,
     };
 
+    // Category filter
     if (category) {
       match.category = mongoose.Types.ObjectId(category);
     }
 
+    // Price filters
     if (minPrice !== undefined) {
       match.price = { $gte: parseFloat(minPrice) };
     }
-
     if (maxPrice !== undefined) {
       match.price = { ...match.price, $lte: parseFloat(maxPrice) };
     }
 
+    // Stock filter
+    if (inStock === "true") {
+      match.stock = { $gt: 0 };
+    } else if (inStock === "false") {
+      match.stock = { $eq: 0 };
+    }
+
+    // Search filter
     if (search) {
       match.$or = [
-        { title: new RegExp(search, 'i') },
-        { description: new RegExp(search, 'i') }
+        { title: new RegExp(search, "i") },
+        { description: new RegExp(search, "i") },
       ];
     }
 
+    // Sort direction
+    const sortDirection = sortOrder === "desc" ? -1 : 1;
+
     // Get products with pagination
     const products = await Product.find(match)
-      .sort({ [sortBy]: parseInt(sortOrder) })
+      .sort({ [sortBy]: sortDirection })
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit))
-      .populate('category');
+      .populate("category");
 
     // Transform products to include imageWithAlt
-    const transformedProducts = products.map(product => {
+    const transformedProducts = products.map((product) => {
       const productObj = product.toObject();
-      productObj.imageWithAlt = this.generateImageWithAlt(product.title, product.image);
+      productObj.imageWithAlt = this.generateImageWithAlt(
+        product.title,
+        product.image
+      );
       return productObj;
     });
 
@@ -559,8 +607,10 @@ async createProduct(sellerId, productData) {
         currentPage: parseInt(page),
         totalPages: Math.ceil(totalProducts / parseInt(limit)),
         totalItems: totalProducts,
-        itemsPerPage: parseInt(limit)
-      }
+        itemsPerPage: parseInt(limit),
+        hasNext: parseInt(page) < Math.ceil(totalProducts / parseInt(limit)),
+        hasPrev: parseInt(page) > 1,
+      },
     };
   }
 }
