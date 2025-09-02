@@ -89,6 +89,7 @@ class CouponService {
     cart.appliedCoupon = {
       couponId: coupon._id,
       code: coupon.code,
+      discount: coupon.discount,
       discountAmount: discountAmount,
       appliedAt: new Date()
     };
