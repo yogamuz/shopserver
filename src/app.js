@@ -20,6 +20,7 @@ const userRoutes = require("./routes/user.routes");
 const productRoutes = require("./routes/product.routes");
 const categoryRoutes = require("./routes/category.routes");
 const sellerRoutes = require("./routes/seller.routes");
+const { uptime } = require("process");
 
 // IMPORTANT: Set refresh token secret if not exists
 if (!process.env.REFRESH_SECRET) {
@@ -52,7 +53,7 @@ app.use(
     origin: function (origin, callback) {
       // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) return callback(null, true);
-      
+
       const allowedOrigins = [
         process.env.CLIENT_URL || "http://localhost:3000",
         "http://localhost:5173", // Vite dev server
@@ -60,40 +61,37 @@ app.use(
         "http://127.0.0.1:5173", // Alternative localhost
         "https://127.0.0.1:5173", // HTTPS alternative
       ];
-      
+
       // PERBAIKAN: Allow semua localhost untuk development
       if (process.env.NODE_ENV !== "production") {
         if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
           return callback(null, true);
         }
       }
-      
+
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         console.log("CORS blocked origin:", origin); // Debug log
-        callback(new Error('Not allowed by CORS'));
+        callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
       "Content-Type",
-      "Authorization", 
+      "Authorization",
       "Accept",
       "Origin",
       "X-Requested-With",
       "x-session-id",
       "X-CSRF-Token",
       "Cache-Control",
-      "Pragma"
+      "Pragma",
     ],
-    exposedHeaders: [
-      "X-CSRF-Token",
-      "Set-Cookie"
-    ],
+    exposedHeaders: ["X-CSRF-Token", "Set-Cookie"],
     preflightContinue: false,
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 200,
   })
 );
 
@@ -184,6 +182,7 @@ app.get("/api/health", (req, res) => {
   res.json({
     status: "OK",
     timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
     refreshTokenFeature: "✅ Enabled",
   });
 });
