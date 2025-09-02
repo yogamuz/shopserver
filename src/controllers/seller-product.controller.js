@@ -16,62 +16,110 @@ class SellerProductController {
   /**
    * Create product for seller
    */
-createProduct = asyncHandler(async (req, res) => {
-  // FIX: Use _id instead of userId since req.user is the User object from authMiddleware
-  const userId = req.user._id || req.user.id;
-  const { title, description, price, category, stock, image } = req.body;
+  createProduct = asyncHandler(async (req, res) => {
+    // FIX: Use _id instead of userId since req.user is the User object from authMiddleware
+    const userId = req.user._id || req.user.id;
+    const { title, description, price, category, stock, image } = req.body;
 
-  logger.info(`📦 Creating product for seller: ${userId}`);
+    logger.info(`📦 Creating product for seller: ${userId}`);
 
-  // Validate product data using ValidationHelper
-  const validation = ValidationHelper.validateProductData(req.body);
-  if (!validation.isValid) {
-    logger.info(`❌ Validation failed:`, validation.errors);
-    return ResponseHelper.badRequest(res, 'Validation failed', validation.errors);
-  }
+    // Validate product data using ValidationHelper
+    const validation = ValidationHelper.validateProductData(req.body);
+    if (!validation.isValid) {
+      logger.info(`❌ Validation failed:`, validation.errors);
+      return ResponseHelper.badRequest(
+        res,
+        "Validation failed",
+        validation.errors
+      );
+    }
 
-  // Get active seller profile
-  const sellerProfile = await sellerProfileService.findByUserId(userId);
-  
-  logger.info(`🔍 DEBUG - Seller Profile Found:`, !!sellerProfile);
-  logger.info(`🔍 DEBUG - Profile Status:`, sellerProfile?.status);
-  
-  if (!sellerProfile || sellerProfile.status !== 'active') {
-    logger.info(`❌ Profile validation failed:`, {
-      exists: !!sellerProfile,
-      status: sellerProfile?.status,
-      isActive: sellerProfile?.status === 'active'
-    });
-    return ResponseHelper.notFound(res, MESSAGES.SELLER_PROFILE.ACTIVE_NOT_FOUND);
-  }
+    // Get active seller profile
+    const sellerProfile = await sellerProfileService.findByUserId(userId);
 
-  // Validate category
-  const categoryDoc = await sellerProductService.validateCategory(validation.data.category);
-  if (!categoryDoc) {
-    return ResponseHelper.badRequest(res, MESSAGES.CATEGORY.INVALID_OR_INACTIVE);
-  }
+    logger.info(`🔍 DEBUG - Seller Profile Found:`, !!sellerProfile);
+    logger.info(`🔍 DEBUG - Profile Status:`, sellerProfile?.status);
 
-  // Create product using validated data
-  const product = await sellerProductService.createProduct(sellerProfile._id, validation.data);
+    if (!sellerProfile || sellerProfile.status !== "active") {
+      logger.info(`❌ Profile validation failed:`, {
+        exists: !!sellerProfile,
+        status: sellerProfile?.status,
+        isActive: sellerProfile?.status === "active",
+      });
+      return ResponseHelper.notFound(
+        res,
+        MESSAGES.SELLER_PROFILE.ACTIVE_NOT_FOUND
+      );
+    }
 
-  logger.info(`✅ Product created: ${product.title} by ${sellerProfile.storeName}`);
-  
-  // Log image status
-  if (product.imageWithAlt?.hasImage) {
-    logger.info(`🖼️ Product has image: ${product.imageWithAlt.url}`);
-  } else {
-    logger.info(`🏷️ Product created with alt text fallback: ${product.imageWithAlt?.alt}`);
-  }
+    // Validate category
+    const categoryDoc = await sellerProductService.validateCategory(
+      validation.data.category
+    );
+    if (!categoryDoc) {
+      return ResponseHelper.badRequest(
+        res,
+        MESSAGES.CATEGORY.INVALID_OR_INACTIVE
+      );
+    }
 
-  return ResponseHelper.created(res, MESSAGES.PRODUCT.CREATED, product);
-});
+    // Create product using validated data
+    const product = await sellerProductService.createProduct(
+      sellerProfile._id,
+      validation.data
+    );
+
+    logger.info(
+      `✅ Product created: ${product.title} by ${sellerProfile.storeName}`
+    );
+
+    // Log image status
+    if (product.imageWithAlt?.hasImage) {
+      logger.info(`🖼️ Product has image: ${product.imageWithAlt.url}`);
+    } else {
+      logger.info(
+        `🏷️ Product created with alt text fallback: ${product.imageWithAlt?.alt}`
+      );
+    }
+
+    return ResponseHelper.created(res, MESSAGES.PRODUCT.CREATED, product);
+  });
 
   /**
    * Get all products for seller
    */
   getSellerProducts = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
-    const queryOptions = req.query;
+
+    // Validasi query params yang diizinkan untuk seller products
+    const allowedParams = [
+      "page",
+      "limit",
+      "sortBy",
+      "sortOrder",
+      "status",
+      "category",
+      "search",
+      "minPrice",
+      "maxPrice",
+      "inStock",
+    ];
+
+    const queryKeys = Object.keys(req.query);
+    const invalidParams = queryKeys.filter(
+      (key) => !allowedParams.includes(key)
+    );
+
+    if (invalidParams.length > 0) {
+      return ResponseHelper.badRequest(
+        res,
+        `Invalid query parameters: ${invalidParams.join(", ")}`,
+        {
+          allowedParams,
+          received: queryKeys,
+        }
+      );
+    }
 
     logger.info(`📋 Getting products for seller: ${userId}`);
 
@@ -81,11 +129,12 @@ createProduct = asyncHandler(async (req, res) => {
       return ResponseHelper.notFound(res, MESSAGES.SELLER_PROFILE.NOT_FOUND);
     }
 
-    // Get products with pagination
-    const { products, pagination } = await sellerProductService.getSellerProducts(
-      sellerProfile._id, 
-      queryOptions
-    );
+    // Get products with enhanced query options
+    const { products, pagination } =
+      await sellerProductService.getSellerProducts(
+        sellerProfile._id,
+        req.query
+      );
 
     const responseData = {
       store: {
@@ -93,13 +142,19 @@ createProduct = asyncHandler(async (req, res) => {
         storeName: sellerProfile.storeName,
         storeSlug: sellerProfile.storeSlug,
         description: sellerProfile.description,
-        logo: sellerProfile.logo
+        logo: sellerProfile.logo,
       },
       products,
-      pagination
+      pagination,
+      appliedFilters: req.query,
     };
 
-    return ResponseHelper.success(res, HTTP_STATUS.OK, 'Products retrieved successfully', responseData);
+    return ResponseHelper.success(
+      res,
+      HTTP_STATUS.OK,
+      "Products retrieved successfully",
+      responseData
+    );
   });
 
   /**
@@ -118,12 +173,20 @@ createProduct = asyncHandler(async (req, res) => {
     }
 
     // Get product
-    const product = await sellerProductService.getSellerProduct(productId, sellerProfile._id);
+    const product = await sellerProductService.getSellerProduct(
+      productId,
+      sellerProfile._id
+    );
     if (!product) {
       return ResponseHelper.notFound(res, MESSAGES.PRODUCT.NOT_FOUND);
     }
 
-    return ResponseHelper.success(res, HTTP_STATUS.OK, 'Product retrieved successfully', product);
+    return ResponseHelper.success(
+      res,
+      HTTP_STATUS.OK,
+      "Product retrieved successfully",
+      product
+    );
   });
 
   /**
@@ -144,21 +207,35 @@ createProduct = asyncHandler(async (req, res) => {
 
     // Validate category if being updated
     if (updates.category) {
-      const categoryDoc = await sellerProductService.validateCategory(updates.category);
+      const categoryDoc = await sellerProductService.validateCategory(
+        updates.category
+      );
       if (!categoryDoc) {
-        return ResponseHelper.badRequest(res, MESSAGES.CATEGORY.INVALID_OR_INACTIVE);
+        return ResponseHelper.badRequest(
+          res,
+          MESSAGES.CATEGORY.INVALID_OR_INACTIVE
+        );
       }
     }
 
     // Update product
-    const product = await sellerProductService.updateProduct(productId, sellerProfile._id, updates);
+    const product = await sellerProductService.updateProduct(
+      productId,
+      sellerProfile._id,
+      updates
+    );
     if (!product) {
       return ResponseHelper.notFound(res, MESSAGES.PRODUCT.NOT_FOUND);
     }
 
     logger.info(`✅ Product updated: ${product.title}`);
 
-    return ResponseHelper.success(res, HTTP_STATUS.OK, MESSAGES.PRODUCT.UPDATED, product);
+    return ResponseHelper.success(
+      res,
+      HTTP_STATUS.OK,
+      MESSAGES.PRODUCT.UPDATED,
+      product
+    );
   });
 
   /**
@@ -169,7 +246,9 @@ createProduct = asyncHandler(async (req, res) => {
     const { productId } = req.params;
     const { isActive } = req.body;
 
-    logger.info(`🔄 Updating product status ${productId} for seller: ${userId}`);
+    logger.info(
+      `🔄 Updating product status ${productId} for seller: ${userId}`
+    );
 
     // Get seller profile
     const sellerProfile = await sellerProfileService.findByUserId(userId);
@@ -179,8 +258,8 @@ createProduct = asyncHandler(async (req, res) => {
 
     // Update product status
     const product = await sellerProductService.updateProductStatus(
-      productId, 
-      sellerProfile._id, 
+      productId,
+      sellerProfile._id,
       isActive
     );
 
@@ -188,15 +267,19 @@ createProduct = asyncHandler(async (req, res) => {
       return ResponseHelper.notFound(res, MESSAGES.PRODUCT.NOT_FOUND);
     }
 
-    const statusText = isActive ? MESSAGES.PRODUCT.ACTIVE : MESSAGES.PRODUCT.INACTIVE;
-    const actionText = isActive ? MESSAGES.PRODUCT.ACTIVATED : MESSAGES.PRODUCT.DEACTIVATED;
+    const statusText = isActive
+      ? MESSAGES.PRODUCT.ACTIVE
+      : MESSAGES.PRODUCT.INACTIVE;
+    const actionText = isActive
+      ? MESSAGES.PRODUCT.ACTIVATED
+      : MESSAGES.PRODUCT.DEACTIVATED;
 
     logger.info(`✅ Product status updated: ${product.title} - ${statusText}`);
 
     return ResponseHelper.success(
-      res, 
-      HTTP_STATUS.OK, 
-      `Product ${actionText} successfully`, 
+      res,
+      HTTP_STATUS.OK,
+      `Product ${actionText} successfully`,
       product
     );
   });
@@ -217,14 +300,21 @@ createProduct = asyncHandler(async (req, res) => {
     }
 
     // Delete product
-    const product = await sellerProductService.deleteProduct(productId, sellerProfile._id);
+    const product = await sellerProductService.deleteProduct(
+      productId,
+      sellerProfile._id
+    );
     if (!product) {
       return ResponseHelper.notFound(res, MESSAGES.PRODUCT.NOT_FOUND);
     }
 
     logger.info(`✅ Product deleted: ${product.title}`);
 
-    return ResponseHelper.success(res, HTTP_STATUS.OK, MESSAGES.PRODUCT.DELETED);
+    return ResponseHelper.success(
+      res,
+      HTTP_STATUS.OK,
+      MESSAGES.PRODUCT.DELETED
+    );
   });
 
   /**
@@ -235,10 +325,15 @@ createProduct = asyncHandler(async (req, res) => {
     const { productIds, isActive } = req.body;
 
     if (!ValidationHelper.validateProductIds(productIds)) {
-      return ResponseHelper.badRequest(res, MESSAGES.VALIDATION.PRODUCT_IDS_REQUIRED);
+      return ResponseHelper.badRequest(
+        res,
+        MESSAGES.VALIDATION.PRODUCT_IDS_REQUIRED
+      );
     }
 
-    logger.info(`🔄 Bulk updating ${productIds.length} products for seller: ${userId}`);
+    logger.info(
+      `🔄 Bulk updating ${productIds.length} products for seller: ${userId}`
+    );
 
     // Get seller profile
     const sellerProfile = await sellerProfileService.findByUserId(userId);
@@ -248,22 +343,24 @@ createProduct = asyncHandler(async (req, res) => {
 
     // Update products
     const result = await sellerProductService.bulkUpdateProductStatus(
-      productIds, 
-      sellerProfile._id, 
+      productIds,
+      sellerProfile._id,
       isActive
     );
 
-    const actionText = isActive ? MESSAGES.PRODUCT.ACTIVATED : MESSAGES.PRODUCT.DEACTIVATED;
+    const actionText = isActive
+      ? MESSAGES.PRODUCT.ACTIVATED
+      : MESSAGES.PRODUCT.DEACTIVATED;
 
     logger.info(`✅ Bulk updated ${result.modifiedCount} products`);
 
     return ResponseHelper.success(
-      res, 
-      HTTP_STATUS.OK, 
+      res,
+      HTTP_STATUS.OK,
       `${result.modifiedCount} products ${actionText} successfully`,
       {
         matchedCount: result.matchedCount,
-        modifiedCount: result.modifiedCount
+        modifiedCount: result.modifiedCount,
       }
     );
   });
@@ -276,10 +373,15 @@ createProduct = asyncHandler(async (req, res) => {
     const { productIds } = req.body;
 
     if (!ValidationHelper.validateProductIds(productIds)) {
-      return ResponseHelper.badRequest(res, MESSAGES.VALIDATION.PRODUCT_IDS_REQUIRED);
+      return ResponseHelper.badRequest(
+        res,
+        MESSAGES.VALIDATION.PRODUCT_IDS_REQUIRED
+      );
     }
 
-    logger.info(`🗑️ Bulk deleting ${productIds.length} products for seller: ${userId}`);
+    logger.info(
+      `🗑️ Bulk deleting ${productIds.length} products for seller: ${userId}`
+    );
 
     // Get seller profile
     const sellerProfile = await sellerProfileService.findByUserId(userId);
@@ -288,13 +390,16 @@ createProduct = asyncHandler(async (req, res) => {
     }
 
     // Delete products
-    const result = await sellerProductService.bulkDeleteProducts(productIds, sellerProfile._id);
+    const result = await sellerProductService.bulkDeleteProducts(
+      productIds,
+      sellerProfile._id
+    );
 
     logger.info(`✅ Bulk deleted ${result.deletedCount} products`);
 
     return ResponseHelper.success(
-      res, 
-      HTTP_STATUS.OK, 
+      res,
+      HTTP_STATUS.OK,
       `${result.deletedCount} products deleted successfully`,
       { deletedCount: result.deletedCount }
     );
@@ -317,8 +422,8 @@ createProduct = asyncHandler(async (req, res) => {
 
     // Upload image
     const result = await sellerProductService.uploadProductImage(
-      productId, 
-      sellerProfile._id, 
+      productId,
+      sellerProfile._id,
       req.file
     );
 
@@ -329,12 +434,12 @@ createProduct = asyncHandler(async (req, res) => {
     logger.info(`✅ Product image uploaded: ${result.productTitle}`);
 
     return ResponseHelper.success(
-      res, 
-      HTTP_STATUS.OK, 
+      res,
+      HTTP_STATUS.OK,
       MESSAGES.PRODUCT.IMAGE_UPLOADED,
       {
         imageUrl: result.imageUrl,
-        metadata: result.metadata
+        metadata: result.metadata,
       }
     );
   });
@@ -354,9 +459,16 @@ createProduct = asyncHandler(async (req, res) => {
     }
 
     // Get dashboard stats
-    const stats = await sellerProductService.getDashboardStats(sellerProfile._id);
+    const stats = await sellerProductService.getDashboardStats(
+      sellerProfile._id
+    );
 
-    return ResponseHelper.success(res, HTTP_STATUS.OK, 'Dashboard stats retrieved successfully', stats);
+    return ResponseHelper.success(
+      res,
+      HTTP_STATUS.OK,
+      "Dashboard stats retrieved successfully",
+      stats
+    );
   });
 
   /**
@@ -364,11 +476,13 @@ createProduct = asyncHandler(async (req, res) => {
    */
   getProductStats = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
-    const { period = '30d' } = req.query;
+    const { period = "30d" } = req.query;
 
     const validatedPeriod = ValidationHelper.validatePeriod(period);
 
-    logger.info(`📈 Getting product stats for seller: ${userId}, period: ${validatedPeriod}`);
+    logger.info(
+      `📈 Getting product stats for seller: ${userId}, period: ${validatedPeriod}`
+    );
 
     // Get seller profile
     const sellerProfile = await sellerProfileService.findByUserId(userId);
@@ -377,9 +491,17 @@ createProduct = asyncHandler(async (req, res) => {
     }
 
     // Get product stats
-    const stats = await sellerProductService.getProductStats(sellerProfile._id, validatedPeriod);
+    const stats = await sellerProductService.getProductStats(
+      sellerProfile._id,
+      validatedPeriod
+    );
 
-    return ResponseHelper.success(res, HTTP_STATUS.OK, 'Product stats retrieved successfully', stats);
+    return ResponseHelper.success(
+      res,
+      HTTP_STATUS.OK,
+      "Product stats retrieved successfully",
+      stats
+    );
   });
 
   /**
@@ -387,7 +509,35 @@ createProduct = asyncHandler(async (req, res) => {
    */
   getStoreProducts = asyncHandler(async (req, res) => {
     const { slug } = req.params;
-    const queryOptions = req.query;
+
+    // Validasi query params untuk public store
+    const allowedParams = [
+      "page",
+      "limit",
+      "sortBy",
+      "sortOrder",
+      "category",
+      "search",
+      "minPrice",
+      "maxPrice",
+      "inStock",
+    ];
+
+    const queryKeys = Object.keys(req.query);
+    const invalidParams = queryKeys.filter(
+      (key) => !allowedParams.includes(key)
+    );
+
+    if (invalidParams.length > 0) {
+      return ResponseHelper.badRequest(
+        res,
+        `Invalid query parameters: ${invalidParams.join(", ")}`,
+        {
+          allowedParams,
+          received: queryKeys,
+        }
+      );
+    }
 
     logger.info(`🏪 Getting products for store: ${slug}`);
 
@@ -398,16 +548,14 @@ createProduct = asyncHandler(async (req, res) => {
     }
 
     // Validate price range if provided
-    const { minPrice, maxPrice } = queryOptions;
+    const { minPrice, maxPrice } = req.query;
     if (!ValidationHelper.validatePriceRange(minPrice, maxPrice)) {
-      return ResponseHelper.badRequest(res, 'Invalid price range');
+      return ResponseHelper.badRequest(res, "Invalid price range");
     }
 
-    // Get store products
-    const { products, pagination } = await sellerProductService.getStoreProducts(
-      sellerProfile._id, 
-      queryOptions
-    );
+    // Get store products with enhanced filtering
+    const { products, pagination } =
+      await sellerProductService.getStoreProducts(sellerProfile._id, req.query);
 
     const responseData = {
       products,
@@ -415,11 +563,17 @@ createProduct = asyncHandler(async (req, res) => {
       seller: {
         id: sellerProfile._id,
         storeName: sellerProfile.storeName,
-        storeSlug: sellerProfile.storeSlug
-      }
+        storeSlug: sellerProfile.storeSlug,
+      },
+      appliedFilters: req.query,
     };
 
-    return ResponseHelper.success(res, HTTP_STATUS.OK, 'Store products retrieved successfully', responseData);
+    return ResponseHelper.success(
+      res,
+      HTTP_STATUS.OK,
+      "Store products retrieved successfully",
+      responseData
+    );
   });
 }
 
@@ -438,5 +592,5 @@ module.exports = {
   uploadProductImage: controller.uploadProductImage,
   getDashboardStats: controller.getDashboardStats,
   getProductStats: controller.getProductStats,
-  getStoreProducts: controller.getStoreProducts
+  getStoreProducts: controller.getStoreProducts,
 };

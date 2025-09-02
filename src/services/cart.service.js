@@ -18,7 +18,7 @@ class CartService {
   static async getUserCart(userId) {
     let cart = await Cart.findOne({ user: userId }).populate({
       path: 'items.product',
-      select: 'title price image category',
+      select: 'title price image category description stock',
       populate: {
         path: 'category',
         select: 'name description image'
