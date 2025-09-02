@@ -1,39 +1,46 @@
 // services/cartService.js
-const Cart = require('../models/cart.model');
-const Product = require('../models/products.model');
-const { HTTP_STATUS, MESSAGES } = require('../constants/httpStatus');
-const { 
-  populateCart, 
-  validateQuantity, 
-  validateStock, 
+const Cart = require("../models/cart.model");
+const Product = require("../models/products.model");
+const { HTTP_STATUS, MESSAGES } = require("../constants/httpStatus");
+const {
+  populateCart,
+  validateQuantity,
+  validateStock,
   validateStockForUpdate,
-  formatCartResponse 
-} = require('../utils/cart.util');
-const logger = require('../utils/logger');
+  formatCartResponse,
+} = require("../utils/cart.util");
+const logger = require("../utils/logger");
 
 class CartService {
   /**
    * Get user's cart with populated data
    */
-  static async getUserCart(userId) {
-    let cart = await Cart.findOne({ user: userId }).populate({
-      path: 'items.product',
-      select: 'title price image category description stock',
-      populate: {
-        path: 'category',
-        select: 'name description image'
-      }
-    });
+static async getUserCart(userId) {
+  let cart = await Cart.findOne({ user: userId }).populate({
+    path: "items.product",
+    select: "title price image category description stock sellerId", // Changed from 'seller' to 'sellerId'
+    populate: [
+      {
+        path: "category",
+        select: "name description image",
+      },
+      {
+        path: "sellerId", // Changed from 'seller' to 'sellerId'
+        select: "storeName businessName storeSlug logo", // Select fields from SellerProfile
+        model: "SellerProfile" // Explicitly specify model if needed
+      },
+    ],
+  });
 
-    if (!cart) {
-      throw {
-        status: HTTP_STATUS.NOT_FOUND,
-        message: MESSAGES.CART.NOT_FOUND
-      };
-    }
-
-    return formatCartResponse(cart);
+  if (!cart) {
+    throw {
+      status: HTTP_STATUS.NOT_FOUND,
+      message: MESSAGES.CART.NOT_FOUND,
+    };
   }
+
+  return formatCartResponse(cart);
+}
 
   /**
    * Add item to cart
@@ -50,7 +57,7 @@ class CartService {
     if (!product) {
       throw {
         status: HTTP_STATUS.NOT_FOUND,
-        message: MESSAGES.PRODUCT.NOT_FOUND
+        message: MESSAGES.PRODUCT.NOT_FOUND,
       };
     }
 
@@ -61,14 +68,18 @@ class CartService {
     }
 
     // Check if product already exists in cart
-    const existingItem = cart.items.find(item => 
-      item.product.toString() === productId.toString()
+    const existingItem = cart.items.find(
+      (item) => item.product.toString() === productId.toString()
     );
 
     const currentQuantityInCart = existingItem ? existingItem.quantity : 0;
 
     // Validate stock
-    const stockValidation = validateStock(product, quantity, currentQuantityInCart);
+    const stockValidation = validateStock(
+      product,
+      quantity,
+      currentQuantityInCart
+    );
     if (!stockValidation.isValid) {
       throw stockValidation.error;
     }
@@ -79,7 +90,7 @@ class CartService {
     // Populate and return cart
     await populateCart(cart);
 
-   logger.info(`✅ Item added to cart: ${product.title} (qty: ${quantity})`);
+    logger.info(`✅ Item added to cart: ${product.title} (qty: ${quantity})`);
 
     return cart;
   }
@@ -99,7 +110,7 @@ class CartService {
     if (!product) {
       throw {
         status: HTTP_STATUS.NOT_FOUND,
-        message: MESSAGES.PRODUCT.NOT_FOUND
+        message: MESSAGES.PRODUCT.NOT_FOUND,
       };
     }
 
@@ -108,19 +119,19 @@ class CartService {
     if (!cart) {
       throw {
         status: HTTP_STATUS.NOT_FOUND,
-        message: MESSAGES.CART.NOT_FOUND
+        message: MESSAGES.CART.NOT_FOUND,
       };
     }
 
     // Find item in cart
     const itemIndex = cart.items.findIndex(
-      item => item.product.toString() === productId.toString()
+      (item) => item.product.toString() === productId.toString()
     );
 
     if (itemIndex === -1) {
       throw {
         status: HTTP_STATUS.NOT_FOUND,
-        message: MESSAGES.CART.ITEM_NOT_FOUND
+        message: MESSAGES.CART.ITEM_NOT_FOUND,
       };
     }
 
@@ -133,10 +144,10 @@ class CartService {
     // Update or remove item
     if (quantity === 0) {
       cart.items.splice(itemIndex, 1);
-     logger.info('✅ Item removed from cart');
+      logger.info("✅ Item removed from cart");
     } else {
       cart.items[itemIndex].quantity = quantity;
-     logger.info('✅ Item quantity updated');
+      logger.info("✅ Item quantity updated");
     }
 
     // Save cart
@@ -145,11 +156,11 @@ class CartService {
     // Populate for response
     await populateCart(cart);
 
-   logger.info(`✅ Cart item updated: ${productId} (qty: ${quantity})`);
+    logger.info(`✅ Cart item updated: ${productId} (qty: ${quantity})`);
 
     return {
       cart,
-      isRemoved: quantity === 0
+      isRemoved: quantity === 0,
     };
   }
 
@@ -161,7 +172,7 @@ class CartService {
     if (!cart) {
       throw {
         status: HTTP_STATUS.NOT_FOUND,
-        message: MESSAGES.CART.NOT_FOUND
+        message: MESSAGES.CART.NOT_FOUND,
       };
     }
 
@@ -171,7 +182,7 @@ class CartService {
     // Populate for response
     await populateCart(cart);
 
-   logger.info(`✅ Item removed from cart: ${productId}`);
+    logger.info(`✅ Item removed from cart: ${productId}`);
 
     return cart;
   }
@@ -179,25 +190,25 @@ class CartService {
   /**
    * Clear entire cart
    */
-static async clearCart(userId) {
-  const cart = await Cart.findByUser(userId);
-  if (!cart) {
-    throw {
-      status: HTTP_STATUS.NOT_FOUND,
-      message: MESSAGES.CART.NOT_FOUND
-    };
+  static async clearCart(userId) {
+    const cart = await Cart.findByUser(userId);
+    if (!cart) {
+      throw {
+        status: HTTP_STATUS.NOT_FOUND,
+        message: MESSAGES.CART.NOT_FOUND,
+      };
+    }
+
+    // Clear cart - reset items array and coupon
+    cart.items = [];
+    cart.appliedCoupon = null; // atau cart.couponId = null, tergantung struktur schema
+    cart.discount = 0; // reset discount jika ada field ini
+    await cart.save();
+
+    logger.info(`✅ Cart cleared for user ${userId}, coupon removed`);
+
+    return cart;
   }
-
-  // Clear cart - reset items array and coupon
-  cart.items = [];
-  cart.appliedCoupon = null; // atau cart.couponId = null, tergantung struktur schema
-  cart.discount = 0; // reset discount jika ada field ini
-  await cart.save();
-
- logger.info(`✅ Cart cleared for user ${userId}, coupon removed`);
-
-  return cart;
-}
 
   /**
    * Get cart items count
@@ -205,11 +216,13 @@ static async clearCart(userId) {
   static async getCartCount(userId) {
     const cart = await Cart.findByUser(userId);
     const count = cart ? cart.items.length : 0;
-    const totalQuantities = cart ? cart.items.reduce((sum, item) => sum + item.quantity, 0) : 0;
+    const totalQuantities = cart
+      ? cart.items.reduce((sum, item) => sum + item.quantity, 0)
+      : 0;
 
     return {
       count,
-      totalQuantities
+      totalQuantities,
     };
   }
 }
