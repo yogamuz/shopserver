@@ -6,6 +6,7 @@ const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const compression = require("compression");
 const path = require("path");
+const { verifyConfig } = require("./config/cloudinary");
 
 // Import logger AFTER dotenv is loaded
 const logger = require("./utils/logger");
@@ -20,6 +21,9 @@ const userRoutes = require("./routes/user.routes");
 const productRoutes = require("./routes/product.routes");
 const categoryRoutes = require("./routes/category.routes");
 const sellerRoutes = require("./routes/seller.routes");
+const checkoutRoutes = require("./routes/checkout.routes");
+const orderRoutes = require("./routes/order.routes");
+const adminRoutes = require("./routes/admin.routes");
 const { uptime } = require("process");
 
 // IMPORTANT: Set refresh token secret if not exists
@@ -109,68 +113,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser("secret-key"));
 
-// ✅ CLEAN: Static files middleware - serve files from public folder
-app.use(
-  express.static(path.join(process.cwd(), "public"), {
-    maxAge: "1d",
-    etag: true,
-    setHeaders: (res, filePath) => {
-      // Set CORS headers for all static files
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader("Access-Control-Allow-Methods", "GET");
-      res.setHeader(
-        "Access-Control-Allow-Headers",
-        "Origin, X-Requested-With, Content-Type, Accept"
-      );
-      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-
-      // Set proper MIME types for images
-      if (filePath.endsWith(".webp")) {
-        res.setHeader("Content-Type", "image/webp");
-      } else if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) {
-        res.setHeader("Content-Type", "image/jpeg");
-      } else if (filePath.endsWith(".png")) {
-        res.setHeader("Content-Type", "image/png");
-      } else if (filePath.endsWith(".gif")) {
-        res.setHeader("Content-Type", "image/gif");
-      }
-    },
-  })
-);
-
-// Debug middleware untuk log semua request ke static files
-// Enhanced debug middleware for ALL requests
-app.use((req, res, next) => {
-  // Log all requests to help debug
-  logger.info(`📥 Request: ${req.method} ${req.url}`);
-
-  // Special handling for image requests
-  if (
-    req.url.includes(".webp") ||
-    req.url.includes(".jpg") ||
-    req.url.includes(".png")
-  ) {
-    logger.info(`🖼️  Image request detected: ${req.method} ${req.url}`);
-
-    // Fix: Remove the extra 'src' from path construction
-    const filePath = path.join(process.cwd(), "public", req.url);
-    logger.info(`📁 Looking for file: ${filePath}`);
-
-    // Check if file exists
-    const fs = require("fs");
-    try {
-      if (fs.existsSync(filePath)) {
-        logger.info(`✅ File exists: ${filePath}`);
-      } else {
-        logger.error(`❌ File NOT found: ${filePath}`);
-      }
-    } catch (error) {
-      logger.error(`🚨 Error checking file: ${error.message}`);
-    }
-  }
-  next();
-});
-
 // Database connection
 mongoose
   .connect(process.env.MONGODB_URI)
@@ -186,7 +128,13 @@ app.get("/api/health", (req, res) => {
     refreshTokenFeature: "✅ Enabled",
   });
 });
-
+logger.info("🌥️ Cloudinary configuration check:");
+const cloudinaryConfigured = verifyConfig();
+if (!cloudinaryConfigured) {
+  logger.warn(
+    "⚠️ Cloudinary not configured properly - image uploads will fail"
+  );
+}
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -194,6 +142,9 @@ app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/seller", sellerRoutes);
+app.use("/api/checkout", checkoutRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/admin", adminRoutes);
 // app.use("/api/profile", profileRoutes)
 // app.use("/api/email", emailRoutes)
 

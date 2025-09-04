@@ -1,8 +1,9 @@
+// seller-profile.service.js - REFACTORED TO CLASS-BASED VERSION
 const SellerProfile = require("../models/seller-profile.model");
 const Product = require("../models/products.model");
 const User = require("../models/user.model");
 const slugify = require("../utils/slugify");
-const imageUploader = require("../utils/image-uploader.util");
+const imageUploader = require("../utils/cloudinary-uploader.util");
 
 class SellerProfileService {
   /**
@@ -10,9 +11,7 @@ class SellerProfileService {
    * @param {string} userId - User ID
    * @returns {Promise<Object|null>} Seller profile or null
    */
-  async findByUserId(userId) {
-    // FIX: Tambahkan logging dan ubah filter
-
+  static async findByUserId(userId) {
     const profile = await SellerProfile.findOne({
       userId,
       // FIX: Ubah kondisi deletedAt untuk include null dan undefined
@@ -27,7 +26,7 @@ class SellerProfileService {
    * @param {string} slug - Store slug
    * @returns {Promise<Object|null>} Seller profile or null
    */
-  async findBySlug(slug) {
+  static async findBySlug(slug) {
     return await SellerProfile.findBySlug(slug);
   }
 
@@ -36,7 +35,7 @@ class SellerProfileService {
    * @param {string} userId - User ID
    * @returns {Promise<boolean>} True if exists, false otherwise
    */
-  async profileExists(userId) {
+  static async profileExists(userId) {
     const existingProfile = await SellerProfile.findOne({ userId });
     return !!existingProfile;
   }
@@ -46,7 +45,7 @@ class SellerProfileService {
    * @param {string} userId - User ID
    * @returns {Promise<Object|null>} User object or null
    */
-  async verifyUser(userId) {
+  static async verifyUser(userId) {
     const user = await User.findById(userId);
     return user && user.isActive ? user : null;
   }
@@ -56,7 +55,7 @@ class SellerProfileService {
    * @param {Object} profileData - Profile data
    * @returns {Promise<Object>} Created seller profile
    */
-  async createProfile(profileData) {
+  static async createProfile(profileData) {
     const { userId, storeName, description, address, contact } = profileData;
 
     // Generate unique slug
@@ -86,7 +85,7 @@ class SellerProfileService {
    * @param {string} userId - User ID
    * @returns {Promise<Object>} Seller profile with stats
    */
-  async getProfileWithStats(userId) {
+  static async getProfileWithStats(userId) {
     const sellerProfile = await SellerProfile.findOne({
       userId,
       deletedAt: null,
@@ -117,36 +116,20 @@ class SellerProfileService {
    * @param {Object} updates - Updates to apply
    * @returns {Promise<Object>} Updated seller profile
    */
-  async updateProfile(userId, updates) {
-    // console.log('🔄 Starting updateProfile for userId:', userId);
-    // console.log('📝 Updates to apply:', updates);
-
-    const sellerProfile = await this.findByUserId(userId);
+  static async updateProfile(userId, updates) {
+    const sellerProfile = await SellerProfileService.findByUserId(userId);
 
     if (!sellerProfile) {
-      // console.log('❌ No seller profile found');
       return null;
     }
 
-    // console.log('✅ Profile found, current storeName:', sellerProfile.storeName);
-    // console.log('🏪 Current storeSlug:', sellerProfile.storeSlug);
-
-    // FIX: Update slug if storeName changed (dengan logging detail)
+    // FIX: Update slug if storeName changed
     if (updates.storeName) {
       const currentStoreName = sellerProfile.storeName;
       const newStoreName = updates.storeName.trim();
 
-      // console.log('🔍 Comparing store names:');
-      // console.log('  - Current:', currentStoreName);
-      // console.log('  - New:', newStoreName);
-      // console.log('  - Are different?', newStoreName !== currentStoreName);
-
       if (newStoreName !== currentStoreName) {
-        // console.log('🔄 Store name changed, generating new slug...');
-        // console.log('🔧 Using excludeId:', sellerProfile._id);
-
-        // Generate new unique slug - FIX: Parameter urutan yang benar
-        // createUniqueSlug(text, modelName, field, excludeId)
+        // Generate new unique slug
         const newSlug = await slugify.createUniqueSlug(
           newStoreName,
           "SellerProfile",
@@ -154,36 +137,18 @@ class SellerProfileService {
           sellerProfile._id
         );
         updates.storeSlug = newSlug;
-
-        // console.log('✅ New slug generated:', newSlug);
-      } else {
-        // console.log('ℹ️ Store name unchanged, keeping current slug');
       }
     }
 
     // Apply updates
     Object.keys(updates).forEach((key) => {
       if (key !== "userId" && key !== "_id") {
-        const oldValue = sellerProfile[key];
-        const newValue = updates[key];
-
-        // console.log(`🔧 Setting ${key}:`);
-        // console.log(`   From: ${oldValue}`);
-        // console.log(`   To: ${newValue}`);
-
-        sellerProfile[key] = newValue;
+        sellerProfile[key] = updates[key];
       }
     });
 
-    // console.log('💾 Saving profile...');
     await sellerProfile.save();
-
-    // console.log('👤 Populating userId...');
     await sellerProfile.populate("userId", "username email");
-
-    // console.log('✅ Profile updated successfully:');
-    // console.log('   - storeName:', sellerProfile.storeName);
-    // console.log('   - storeSlug:', sellerProfile.storeSlug);
 
     return sellerProfile;
   }
@@ -195,36 +160,53 @@ class SellerProfileService {
    * @param {Object} file - Uploaded file
    * @returns {Promise<Object>} Upload result
    */
-  async uploadStoreImage(userId, imageType, file) {
-    const sellerProfile = await this.findByUserId(userId);
+static async uploadStoreImage(userId, imageType, file) {
+    const sellerProfile = await SellerProfileService.findByUserId(userId);
 
     if (!sellerProfile) {
       return { success: false, message: "Seller profile not found" };
     }
 
-    // Upload image with specific settings
+    // Configuration based on image type
     const uploadOptions = {
-      folder: `sellers/${sellerProfile._id}/${imageType}`,
+      folder: `ecommerce/sellers/${sellerProfile._id}/${imageType}`,
       maxSize: imageType === "logo" ? 2 * 1024 * 1024 : 5 * 1024 * 1024, // 2MB for logo, 5MB for banner
       dimensions:
         imageType === "logo"
           ? { width: 400, height: 400 }
           : { width: 1200, height: 400 },
+      format: 'webp',
     };
 
+    // Upload new image to Cloudinary
     const uploadResult = await imageUploader.uploadImage(file, uploadOptions);
 
     if (!uploadResult.success) {
       return uploadResult;
     }
 
-    // Update profile with new image URL
+    // Delete old image from Cloudinary if exists
+    if (sellerProfile[imageType]) {
+      const deleteResult = await imageUploader.deleteImage(sellerProfile[imageType]);
+      if (deleteResult.success) {
+        logger.info(`Old ${imageType} deleted from Cloudinary: ${sellerProfile.storeName}`);
+      } else {
+        logger.warn(`Failed to delete old ${imageType}: ${deleteResult.message}`);
+      }
+    }
+
+    // Update profile with new Cloudinary URL
     sellerProfile[imageType] = uploadResult.imageUrl;
     await sellerProfile.save();
+
+    logger.info(`${imageType} uploaded to Cloudinary: ${sellerProfile.storeName}`);
+    logger.info(`Cloudinary URL: ${uploadResult.imageUrl}`);
 
     return {
       success: true,
       imageUrl: uploadResult.imageUrl,
+      publicId: uploadResult.publicId,
+      cloudinaryData: uploadResult.cloudinaryData,
       storeName: sellerProfile.storeName,
     };
   }
@@ -234,8 +216,8 @@ class SellerProfileService {
    * @param {string} userId - User ID
    * @returns {Promise<Object|null>} Archived seller profile
    */
-  async archiveProfile(userId) {
-    const sellerProfile = await this.findByUserId(userId);
+  static async archiveProfile(userId) {
+    const sellerProfile = await SellerProfileService.findByUserId(userId);
 
     if (!sellerProfile) {
       return null;
@@ -257,8 +239,8 @@ class SellerProfileService {
    * @param {string} userId - User ID
    * @returns {Promise<Object|null>} Restored seller profile
    */
-  async restoreProfile(userId) {
-    const sellerProfile = await this.findByUserId(userId);
+  static async restoreProfile(userId) {
+    const sellerProfile = await SellerProfileService.findByUserId(userId);
 
     if (!sellerProfile) {
       return null;
@@ -273,8 +255,8 @@ class SellerProfileService {
    * @param {string} userId - User ID
    * @returns {Promise<Object|null>} Soft deleted seller profile
    */
-  async softDeleteProfile(userId) {
-    const sellerProfile = await this.findByUserId(userId);
+  static async softDeleteProfile(userId) {
+    const sellerProfile = await SellerProfileService.findByUserId(userId);
 
     if (!sellerProfile) {
       return null;
@@ -296,7 +278,7 @@ class SellerProfileService {
    * @param {string} profileId - Profile ID
    * @returns {Promise<Object|null>} Soft deleted seller profile
    */
-  async adminSoftDeleteProfile(profileId) {
+  static async adminSoftDeleteProfile(profileId) {
     const sellerProfile = await SellerProfile.findById(profileId);
 
     if (!sellerProfile) {
@@ -319,7 +301,7 @@ class SellerProfileService {
    * @param {string} profileId - Profile ID
    * @returns {Promise<Object|null>} Activated seller profile
    */
-  async adminActivateProfile(profileId) {
+  static async adminActivateProfile(profileId) {
     // Find profile including soft deleted ones
     const sellerProfile = await SellerProfile.findOne({
       _id: profileId,
@@ -352,7 +334,7 @@ class SellerProfileService {
    * @param {string} profileId - Profile ID
    * @returns {Promise<Object|null>} Seller profile with stats
    */
-  async getProfileById(profileId) {
+  static async getProfileById(profileId) {
     const sellerProfile = await SellerProfile.findById(profileId)
       .populate("userId", "username email createdAt")
       .populate("activeProductsCount");
@@ -379,7 +361,7 @@ class SellerProfileService {
    * @param {string} profileId - Profile ID
    * @returns {Promise<Object|null>} Deleted seller profile info
    */
-  async hardDeleteProfile(profileId) {
+  static async hardDeleteProfile(profileId) {
     const sellerProfile = await SellerProfile.findById(profileId);
 
     if (!sellerProfile) {
@@ -402,7 +384,7 @@ class SellerProfileService {
    * @param {string} userId - User ID
    * @returns {Promise<Object|null>} Activated seller profile
    */
-  async activateProfile(userId) {
+  static async activateProfile(userId) {
     // Find profile including soft deleted ones
     const sellerProfile = await SellerProfile.findOne({
       userId,
@@ -436,7 +418,7 @@ class SellerProfileService {
    * @param {Object} options - Query options
    * @returns {Promise<Object|null>} Public profile with products
    */
-  async getPublicProfile(slug, options = {}) {
+  static async getPublicProfile(slug, options = {}) {
     const {
       page = 1,
       limit = 12,
@@ -444,7 +426,7 @@ class SellerProfileService {
       sortOrder = -1,
     } = options;
 
-    const sellerProfile = await this.findBySlug(slug);
+    const sellerProfile = await SellerProfileService.findBySlug(slug);
 
     if (!sellerProfile) {
       return null;
@@ -485,7 +467,7 @@ class SellerProfileService {
    * @param {Object} options - Query options
    * @returns {Promise<Object>} Stores with pagination
    */
-  async getAllActiveStores(options = {}) {
+  static async getAllActiveStores(options = {}) {
     const {
       page = 1,
       limit = 12,
@@ -522,4 +504,4 @@ class SellerProfileService {
   }
 }
 
-module.exports = new SellerProfileService();
+module.exports = SellerProfileService;

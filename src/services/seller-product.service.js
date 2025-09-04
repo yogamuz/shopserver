@@ -1,8 +1,9 @@
+// seller-product.service.js - REFACTORED TO CLASS-BASED VERSION
 const Product = require("../models/products.model");
 const SellerProfile = require("../models/seller-profile.model");
 const Category = require("../models/category.model");
 const mongoose = require("mongoose");
-const imageUploader = require("../utils/image-uploader.util");
+const imageUploader = require("../utils/cloudinary-uploader.util");
 
 class SellerProductService {
   /**
@@ -11,7 +12,7 @@ class SellerProductService {
    * @param {string|null} imageUrl - Image URL if exists
    * @returns {Object} Image object with alt text
    */
-  generateImageWithAlt(title, imageUrl = null) {
+  static generateImageWithAlt(title, imageUrl = null) {
     return {
       url: imageUrl,
       alt: title || "Product Image",
@@ -20,12 +21,13 @@ class SellerProductService {
       placeholder: imageUrl ? null : "/images/placeholder-product.png",
     };
   }
+
   /**
    * Validate category exists and is active
    * @param {string} categoryId - Category ID
    * @returns {Promise<Object|null>} Category object or null
    */
-  async validateCategory(categoryId) {
+  static async validateCategory(categoryId) {
     const category = await Category.findById(categoryId);
     return category && category.isActive ? category : null;
   }
@@ -36,7 +38,7 @@ class SellerProductService {
    * @param {Object} productData - Product data
    * @returns {Promise<Object>} Created product
    */
-  async createProduct(sellerId, productData) {
+  static async createProduct(sellerId, productData) {
     const { title, description, price, category, stock, image } = productData;
 
     // Create product with seller reference
@@ -55,7 +57,7 @@ class SellerProductService {
 
     // Transform response to include imageWithAlt
     const productResponse = product.toObject();
-    productResponse.imageWithAlt = this.generateImageWithAlt(
+    productResponse.imageWithAlt = SellerProductService.generateImageWithAlt(
       product.title,
       product.image
     );
@@ -69,7 +71,7 @@ class SellerProductService {
    * @param {Object} options - Query options
    * @returns {Promise<Object>} Products with pagination
    */
-  async getSellerProducts(sellerId, options = {}) {
+  static async getSellerProducts(sellerId, options = {}) {
     const {
       page = 1,
       limit = 12,
@@ -133,7 +135,7 @@ class SellerProductService {
     // Transform products to include imageWithAlt
     const transformedProducts = products.map((product) => {
       const productObj = product.toObject();
-      productObj.imageWithAlt = this.generateImageWithAlt(
+      productObj.imageWithAlt = SellerProductService.generateImageWithAlt(
         product.title,
         product.image
       );
@@ -162,7 +164,7 @@ class SellerProductService {
    * @param {string} sellerId - Seller profile ID
    * @returns {Promise<Object|null>} Product or null
    */
-  async getSellerProduct(productId, sellerId) {
+  static async getSellerProduct(productId, sellerId) {
     const product = await Product.findOne({
       _id: productId,
       sellerId,
@@ -174,7 +176,7 @@ class SellerProductService {
 
     // Transform to include imageWithAlt
     const productObj = product.toObject();
-    productObj.imageWithAlt = this.generateImageWithAlt(
+    productObj.imageWithAlt = SellerProductService.generateImageWithAlt(
       product.title,
       product.image
     );
@@ -189,7 +191,7 @@ class SellerProductService {
    * @param {Object} updates - Updates to apply
    * @returns {Promise<Object|null>} Updated product or null
    */
-  async updateProduct(productId, sellerId, updates) {
+  static async updateProduct(productId, sellerId, updates) {
     const product = await Product.findOne({
       _id: productId,
       sellerId,
@@ -219,7 +221,7 @@ class SellerProductService {
    * @param {boolean} isActive - Active status
    * @returns {Promise<Object|null>} Updated product or null
    */
-  async updateProductStatus(productId, sellerId, isActive) {
+  static async updateProductStatus(productId, sellerId, isActive) {
     return await Product.findOneAndUpdate(
       {
         _id: productId,
@@ -236,14 +238,24 @@ class SellerProductService {
    * @param {string} sellerId - Seller profile ID
    * @returns {Promise<Object|null>} Deleted product or null
    */
-  async deleteProduct(productId, sellerId) {
+  static async deleteProduct(productId, sellerId) {
     const product = await Product.findOneAndDelete({
       _id: productId,
       sellerId,
     });
 
+    // Delete image from Cloudinary if exists
     if (product && product.image) {
-      await imageUploader.deleteImage(product.image);
+      const deleteResult = await imageUploader.deleteImage(product.image);
+      if (deleteResult.success) {
+        logger.info(
+          `✅ Product image deleted from Cloudinary: ${product.title}`
+        );
+      } else {
+        logger.warn(
+          `⚠️ Failed to delete image from Cloudinary: ${deleteResult.message}`
+        );
+      }
     }
 
     return product;
@@ -256,7 +268,7 @@ class SellerProductService {
    * @param {boolean} isActive - Active status
    * @returns {Promise<Object>} Update result
    */
-  async bulkUpdateProductStatus(productIds, sellerId, isActive) {
+  static async bulkUpdateProductStatus(productIds, sellerId, isActive) {
     return await Product.updateMany(
       {
         _id: { $in: productIds },
@@ -272,7 +284,7 @@ class SellerProductService {
    * @param {string} sellerId - Seller profile ID
    * @returns {Promise<Object>} Delete result
    */
-  async bulkDeleteProducts(productIds, sellerId) {
+  static async bulkDeleteProducts(productIds, sellerId) {
     // Get products to delete (for image cleanup)
     const productsToDelete = await Product.find({
       _id: { $in: productIds },
@@ -285,11 +297,34 @@ class SellerProductService {
       sellerId,
     });
 
-    // Delete associated images
-    for (const product of productsToDelete) {
-      if (product.image) {
-        await imageUploader.deleteImage(product.image);
-      }
+    // Delete associated images from Cloudinary
+    const imageDeletePromises = productsToDelete
+      .filter((product) => product.image)
+      .map(async (product) => {
+        try {
+          const deleteResult = await imageUploader.deleteImage(product.image);
+          if (deleteResult.success) {
+            logger.info(
+              `✅ Deleted Cloudinary image for product: ${product.title}`
+            );
+          } else {
+            logger.warn(
+              `⚠️ Failed to delete Cloudinary image for product: ${product.title}`
+            );
+          }
+          return deleteResult;
+        } catch (error) {
+          logger.error(
+            `❌ Error deleting image for product ${product.title}:`,
+            error
+          );
+          return { success: false, error: error.message };
+        }
+      });
+
+    // Wait for all image deletions to complete
+    if (imageDeletePromises.length > 0) {
+      await Promise.allSettled(imageDeletePromises);
     }
 
     return result;
@@ -302,7 +337,7 @@ class SellerProductService {
    * @param {Object} file - Uploaded file
    * @returns {Promise<Object>} Upload result
    */
-  async uploadProductImage(productId, sellerId, file) {
+static async uploadProductImage(productId, sellerId, file) {
     const product = await Product.findOne({
       _id: productId,
       sellerId,
@@ -312,30 +347,43 @@ class SellerProductService {
       return { success: false, message: "Product not found" };
     }
 
-    // Upload new image
+    // Upload new image to Cloudinary
     const uploadResult = await imageUploader.uploadImage(file, {
-      folder: `products/${productId}`,
+      folder: `ecommerce/products/${sellerId}/${productId}`,
       maxSize: 3 * 1024 * 1024, // 3MB
       dimensions: { width: 800, height: 600 },
+      format: 'webp',
     });
 
     if (!uploadResult.success) {
       return uploadResult;
     }
 
-    // Delete old image if exists
+    // Delete old image from Cloudinary if exists
     if (product.image) {
-      await imageUploader.deleteImage(product.image);
+      const deleteResult = await imageUploader.deleteImage(product.image);
+      if (deleteResult.success) {
+        logger.info(`✅ Old image deleted from Cloudinary: ${product.title}`);
+      } else {
+        logger.warn(`⚠️ Failed to delete old image: ${deleteResult.message}`);
+      }
     }
 
-    // Update product with new image URL
+    // Update product with new Cloudinary URL and store public_id for future deletions
     product.image = uploadResult.imageUrl;
+    // Optionally store the public_id for easier deletion later
+    product.cloudinaryPublicId = uploadResult.publicId;
     await product.save();
+
+    logger.info(`✅ Product image uploaded to Cloudinary: ${product.title}`);
+    logger.info(`🔗 Cloudinary URL: ${uploadResult.imageUrl}`);
 
     return {
       success: true,
       imageUrl: uploadResult.imageUrl,
+      publicId: uploadResult.publicId,
       metadata: uploadResult.metadata,
+      cloudinaryData: uploadResult.cloudinaryData,
       productTitle: product.title,
     };
   }
@@ -345,7 +393,7 @@ class SellerProductService {
    * @param {string} sellerId - Seller profile ID
    * @returns {Promise<Object>} Dashboard statistics
    */
-  async getDashboardStats(sellerId) {
+  static async getDashboardStats(sellerId) {
     // Get product stats
     const [
       totalProducts,
@@ -416,7 +464,7 @@ class SellerProductService {
    * @param {string} period - Time period for stats
    * @returns {Promise<Object>} Product statistics
    */
-  async getProductStats(sellerId, period = "30d") {
+  static async getProductStats(sellerId, period = "30d") {
     // Calculate date range
     const now = new Date();
     let startDate;
@@ -429,7 +477,7 @@ class SellerProductService {
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         break;
       case "90d":
-        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        startDate = new new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)();
         break;
       case "1y":
         startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
@@ -530,8 +578,7 @@ class SellerProductService {
    * @param {Object} options - Query options
    * @returns {Promise<Object>} Store products with pagination
    */
-  // UPDATE function getStoreProducts - enhance dengan query params
-  async getStoreProducts(sellerId, options = {}) {
+  static async getStoreProducts(sellerId, options = {}) {
     const {
       page = 1,
       limit = 12,
@@ -591,7 +638,7 @@ class SellerProductService {
     // Transform products to include imageWithAlt
     const transformedProducts = products.map((product) => {
       const productObj = product.toObject();
-      productObj.imageWithAlt = this.generateImageWithAlt(
+      productObj.imageWithAlt = SellerProductService.generateImageWithAlt(
         product.title,
         product.image
       );
@@ -615,4 +662,4 @@ class SellerProductService {
   }
 }
 
-module.exports = new SellerProductService();
+module.exports = SellerProductService;
