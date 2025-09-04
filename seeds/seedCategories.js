@@ -14,42 +14,36 @@ const newCategories = [
     _id: new mongoose.Types.ObjectId('66d1a2b3c4e5f6789abcdef0'),
     name: 'beauty',
     description: 'Beauty products including cosmetics, skincare, and personal care items',
-    image: '/images/categories/beauty.png',
     isActive: true
   },
   {
     _id: new mongoose.Types.ObjectId('66d1a2b3c4e5f6789abcdef1'),
     name: 'fashion',
     description: 'Fashion items including clothing, accessories, and style essentials',
-    image: '/images/categories/fashion.png',
     isActive: true
   },
   {
     _id: new mongoose.Types.ObjectId('66d1a2b3c4e5f6789abcdef2'),
     name: 'sneakers',
     description: 'Sneakers and athletic footwear for all occasions',
-    image: '/images/categories/sneakers.png',
     isActive: true
   },
   {
     _id: new mongoose.Types.ObjectId('66d1a2b3c4e5f6789abcdef3'),
     name: 'toys',
     description: 'Toys and games for children and adults',
-    image: '/images/categories/toys.png',
     isActive: true
   },
   {
     _id: new mongoose.Types.ObjectId('66d1a2b3c4e5f6789abcdef4'),
     name: 'furniture',
     description: 'Home and office furniture for comfortable living',
-    image: '/images/categories/furniture.png',
     isActive: true
   },
   {
     _id: new mongoose.Types.ObjectId('66d1a2b3c4e5f6789abcdef5'),
     name: 'gadgets',
     description: 'Electronic gadgets and tech accessories',
-    image: '/images/categories/gadgets.png',
     isActive: true
   }
 ];

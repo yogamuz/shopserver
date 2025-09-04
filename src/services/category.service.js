@@ -1,7 +1,7 @@
 // services/categoryService.js - REFACTORED TO CLASS-BASED VERSION
 const Category = require('../models/category.model');
 const Product = require('../models/products.model');
-const { isValidObjectId, processCategoriesWithImages } = require('../utils/category.util');
+const { isValidObjectId } = require('../utils/category.util');
 const { HTTP_STATUS, MESSAGES } = require('../constants/httpStatus');
 const logger = require('../utils/logger');
 
@@ -55,9 +55,6 @@ class CategoryService {
         .lean();
     }
     
-    // Process categories to include full image URLs
-    const categoriesWithImages = processCategoriesWithImages(categories, req);
-    
     // Get total count for pagination
     const total = await Category.countDocuments(query);
     
@@ -66,7 +63,7 @@ class CategoryService {
     logger.info(`🔍 Query:`, { search, page, limit, withProducts });
     
     return {
-      categories: categoriesWithImages,
+      categories,
       pagination: {
         total,
         page: parseInt(page),
@@ -105,12 +102,9 @@ class CategoryService {
       throw error;
     }
     
-    // Process category to include full image URL
-    const categoryWithImage = processCategoriesWithImages(category, req);
-    
     logger.info(`🔍 Single Category: Found category ${id}`);
     
-    return categoryWithImage;
+    return category;
   }
 
   /**
@@ -210,15 +204,11 @@ class CategoryService {
     
     logger.info(`📦 Products by Category: Found ${products.length}/${total} products in category ${category.name}`);
     
-    // Process category to include full image URL
-    const categoryWithImage = processCategoriesWithImages(category, req);
-    
     return {
       category: {
-        id: categoryWithImage._id,
-        name: categoryWithImage.name,
-        description: categoryWithImage.description,
-        image: categoryWithImage.image
+        id: category._id,
+        name: category.name,
+        description: category.description
       },
       products,
       pagination: {
@@ -247,12 +237,9 @@ class CategoryService {
     const category = new Category(categoryData);
     await category.save();
     
-    // Process category to include full image URL
-    const categoryWithImage = processCategoriesWithImages(category, req);
-    
     logger.info(`✅ Category created: ${category._id} - ${category.name}`);
     
-    return categoryWithImage;
+    return category;
   }
 
   /**
@@ -275,12 +262,9 @@ class CategoryService {
       throw error;
     }
     
-    // Process category to include full image URL
-    const categoryWithImage = processCategoriesWithImages(category, req);
-    
     logger.info(`✅ Category updated: ${id} - ${category.name}`);
     
-    return categoryWithImage;
+    return category;
   }
 
   /**

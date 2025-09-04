@@ -1,5 +1,5 @@
 const { HTTP_STATUS, MESSAGES } = require('../constants/httpStatus');
-
+const logger = require('../utils/logger');
 /**
  * Global error handler middleware
  * @param {Error} err - Error object

@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const categorySchema = new mongoose.Schema({
@@ -8,7 +7,6 @@ const categorySchema = new mongoose.Schema({
     unique: true
   },
   description: String,
-  image: String,
   isActive: {
     type: Boolean,
     default: true
@@ -70,7 +68,6 @@ categorySchema.statics.getCategoriesWithProductCount = function() {
       $project: {
         name: 1,
         description: 1,
-        image: 1,
         productCount: 1,
         createdAt: 1,
         updatedAt: 1

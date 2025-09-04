@@ -4,6 +4,7 @@ const SellerProfile = require("../models/seller-profile.model");
 const Category = require("../models/category.model");
 const mongoose = require("mongoose");
 const imageUploader = require("../utils/cloudinary-uploader.util");
+const logger = require("../utils/logger");
 
 class SellerProductService {
   /**
