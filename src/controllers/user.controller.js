@@ -1,13 +1,16 @@
-// controllers/userController.js
-const { HTTP_STATUS, MESSAGES } = require("../constants/httpStatus");
+// controllers/userController.js - REFACTORED TO CLASS-BASED VERSION
 const userService = require("../services/user.service");
 const userProfileService = require("../services/user-profile.service");
 const { filterUserData } = require("../utils/filter-user-data.util");
+const asyncHandler = require("../middlewares/asyncHandler");
+const { HTTP_STATUS, MESSAGES } = require("../constants/httpStatus");
 const logger = require("../utils/logger");
 
-// POST /api/users/me - create own profile
-exports.createMyProfile = async (req, res, next) => {
-  try {
+class UserController {
+  /**
+   * POST /api/users/me - Create own profile
+   */
+  static createMyProfile = asyncHandler(async (req, res) => {
     logger.info('🆕 Creating profile for user:', req.user._id);
     logger.info('📋 Profile data:', req.body);
     
@@ -29,15 +32,12 @@ exports.createMyProfile = async (req, res, next) => {
       message: result.message,
       data: result.data
     });
-  } catch (error) {
-    logger.error('❌ Error in createMyProfile:', error);
-    next(error);
-  }
-};
+  });
 
-// POST /api/users/me/avatar - upload avatar
-exports.uploadMyAvatar = async (req, res, next) => {
-  try {
+  /**
+   * POST /api/users/me/avatar - Upload avatar
+   */
+  static uploadMyAvatar = asyncHandler(async (req, res) => {
     logger.info('🖼️ Uploading avatar for user:', req.user._id);
     
     if (!req.file) {
@@ -53,44 +53,34 @@ exports.uploadMyAvatar = async (req, res, next) => {
       message: result.message,
       data: result.data
     });
-    
-  } catch (error) {
-    logger.error('❌ Error in uploadMyAvatar:', error);
-    next(error);
-  }
-};
+  });
 
-// DELETE /api/users/me/avatar - remove avatar
-exports.removeMyAvatar = async (req, res, next) => {
-  try {
+  /**
+   * DELETE /api/users/me/avatar - Remove avatar
+   */
+  static removeMyAvatar = asyncHandler(async (req, res) => {
     logger.info('🗑️ Removing avatar for user:', req.user._id);
     
     const result = await userProfileService.removeAvatar(req.user._id);
+    
+    if (result.message === MESSAGES.PROFILE.NO_AVATAR_TO_REMOVE) {
+      return res.status(HTTP_STATUS.OK).json({
+        success: true,
+        message: result.message
+      });
+    }
     
     res.status(HTTP_STATUS.OK).json({
       success: true,
       message: result.message,
       data: result.data
     });
-    
-  } catch (error) {
-    logger.error('❌ Error in removeMyAvatar:', error);
-    
-    // Handle specific case where there's no avatar to remove
-    if (error.message === MESSAGES.PROFILE.NO_AVATAR_TO_REMOVE) {
-      return res.status(HTTP_STATUS.OK).json({
-        success: true,
-        message: error.message
-      });
-    }
-    
-    next(error);
-  }
-};
+  });
 
-// GET /api/users/me
-exports.getMyProfile = async (req, res, next) => {
-  try {
+  /**
+   * GET /api/users/me - Get my profile
+   */
+  static getMyProfile = asyncHandler(async (req, res) => {
     logger.info(`👤 User ${req.user.username} accessing own user data`);
     logger.info(`🔍 User ID from JWT:`, req.user._id);
 
@@ -109,15 +99,12 @@ exports.getMyProfile = async (req, res, next) => {
         profile: result.data.profile,
       },
     });
-  } catch (error) {
-    logger.error("💥 Error in getMyProfile:", error);
-    next(error);
-  }
-};
+  });
 
-// PUT /api/users/me
-exports.updateMyProfile = async (req, res, next) => {
-  try {
+  /**
+   * PUT /api/users/me - Update my profile
+   */
+  static updateMyProfile = asyncHandler(async (req, res) => {
     const { username, firstName, lastName, phone, address, avatar } = req.body;
     const userId = req.user._id;
 
@@ -135,15 +122,12 @@ exports.updateMyProfile = async (req, res, next) => {
       message: result.message,
       data: result.data
     });
-  } catch (error) {
-    logger.error('❌ Error in updateMyProfile:', error);
-    next(error);
-  }
-};
+  });
 
-// DELETE /api/users/me
-exports.deleteMyAccount = async (req, res, next) => {
-  try {
+  /**
+   * DELETE /api/users/me - Delete my account
+   */
+  static deleteMyAccount = asyncHandler(async (req, res) => {
     logger.info(`🗑️ User ${req.user.username} deleting own account`);
 
     await userService.softDeleteUser(req.user._id, req.user._id);
@@ -152,17 +136,14 @@ exports.deleteMyAccount = async (req, res, next) => {
       success: true,
       message: "Account deactivated successfully",
     });
-  } catch (error) {
-    logger.error("💥 Error in deleteMyAccount:", error);
-    next(error);
-  }
-};
+  });
 
-// ADMIN ONLY FUNCTIONS
+  // ADMIN ONLY FUNCTIONS
 
-// GET /api/users - Get all users (ADMIN ONLY)
-exports.getAllUsers = async (req, res, next) => {
-  try {
+  /**
+   * GET /api/users - Get all users (ADMIN ONLY)
+   */
+  static getAllUsers = asyncHandler(async (req, res) => {
     logger.info(`👑 Admin ${req.user.username} accessing all users`);
 
     const queryParams = req.query;
@@ -176,15 +157,12 @@ exports.getAllUsers = async (req, res, next) => {
       data: filteredUsers,
       pagination: result.pagination,
     });
-  } catch (error) {
-    logger.error("💥 Error in getAllUsers:", error);
-    next(error);
-  }
-};
+  });
 
-// GET /api/users/:id - Get specific user (ADMIN ONLY)
-exports.getUserById = async (req, res, next) => {
-  try {
+  /**
+   * GET /api/users/:id - Get specific user (ADMIN ONLY)
+   */
+  static getUserById = asyncHandler(async (req, res) => {
     logger.info(`👑 Admin ${req.user.username} accessing user ${req.params.id}`);
 
     const result = await userProfileService.getUserWithProfile(req.params.id);
@@ -202,15 +180,12 @@ exports.getUserById = async (req, res, next) => {
         profile: result.data.profile,
       },
     });
-  } catch (error) {
-    logger.error("💥 Error in getUserById:", error);
-    next(error);
-  }
-};
+  });
 
-// PUT /api/users/:id - Update any user (ADMIN ONLY)
-exports.updateUser = async (req, res, next) => {
-  try {
+  /**
+   * PUT /api/users/:id - Update any user (ADMIN ONLY)
+   */
+  static updateUser = asyncHandler(async (req, res) => {
     logger.info(`👑 Admin ${req.user.username} updating user ${req.params.id}`);
 
     const userId = req.params.id;
@@ -229,15 +204,12 @@ exports.updateUser = async (req, res, next) => {
       message: MESSAGES.USER.UPDATED,
       data: filterUserData(user, true),
     });
-  } catch (error) {
-    logger.error("💥 Error in updateUser:", error);
-    next(error);
-  }
-};
+  });
 
-// DELETE /api/users/:id - Soft delete user
-exports.softDeleteUser = async (req, res, next) => {
-  try {
+  /**
+   * DELETE /api/users/:id - Soft delete user (ADMIN ONLY)
+   */
+  static softDeleteUser = asyncHandler(async (req, res) => {
     const userId = req.params.id;
     
     const existingUser = await userService.findById(userId);
@@ -255,15 +227,12 @@ exports.softDeleteUser = async (req, res, next) => {
       success: true,
       message: `User "${existingUser.username}" soft-deleted successfully`,
     });
-  } catch (error) {
-    logger.error("💥 Error in softDeleteUser:", error);
-    next(error);
-  }
-};
+  });
 
-// DELETE /api/users/:id/hard - Permanently delete user
-exports.hardDeleteUser = async (req, res, next) => {
-  try {
+  /**
+   * DELETE /api/users/:id/hard - Permanently delete user (ADMIN ONLY)
+   */
+  static hardDeleteUser = asyncHandler(async (req, res) => {
     const userId = req.params.id;
     
     const existingUser = await userService.findById(userId);
@@ -281,15 +250,12 @@ exports.hardDeleteUser = async (req, res, next) => {
       success: true,
       message: `User "${existingUser.username}" permanently deleted`,
     });
-  } catch (error) {
-    logger.error("💥 Error in hardDeleteUser:", error);
-    next(error);
-  }
-};
+  });
 
-// PUT /api/users/:id/role - Change user role (ADMIN ONLY)
-exports.changeUserRole = async (req, res, next) => {
-  try {
+  /**
+   * PUT /api/users/:id/role - Change user role (ADMIN ONLY)
+   */
+  static changeUserRole = asyncHandler(async (req, res) => {
     const { role } = req.body;
     const { id } = req.params;
 
@@ -314,15 +280,12 @@ exports.changeUserRole = async (req, res, next) => {
       message: `User role changed to ${role}`,
       data: filterUserData(user, true),
     });
-  } catch (error) {
-    logger.error("💥 Error in changeUserRole:", error);
-    next(error);
-  }
-};
+  });
 
-// PUT /api/users/:id/status - Activate/Deactivate user (ADMIN ONLY)
-exports.changeUserStatus = async (req, res, next) => {
-  try {
+  /**
+   * PUT /api/users/:id/status - Activate/Deactivate user (ADMIN ONLY)
+   */
+  static changeUserStatus = asyncHandler(async (req, res) => {
     const { isActive } = req.body;
     const { id } = req.params;
 
@@ -341,8 +304,7 @@ exports.changeUserStatus = async (req, res, next) => {
       message: `User ${isActive ? "activated" : "deactivated"} successfully`,
       data: filterUserData(user, true),
     });
-  } catch (error) {
-    logger.error("💥 Error in changeUserStatus:", error);
-    next(error);
-  }
-};
+  });
+}
+
+module.exports = UserController;

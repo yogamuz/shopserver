@@ -1,10 +1,10 @@
+// seller-product.controller.js - REFACTORED TO CLASS-BASED VERSION
 const asyncHandler = require("../middlewares/asyncHandler");
 const sellerProfileService = require("../services/seller-profile.service");
 const sellerProductService = require("../services/seller-product.service");
 const ResponseHelper = require("../utils/response.helper");
 const ValidationHelper = require("../utils/validation.helper");
 const { HTTP_STATUS, MESSAGES } = require("../constants/httpStatus");
-
 // Import logger
 const logger = require("../utils/logger");
 
@@ -16,7 +16,7 @@ class SellerProductController {
   /**
    * Create product for seller
    */
-  createProduct = asyncHandler(async (req, res) => {
+  static createProduct = asyncHandler(async (req, res) => {
     // FIX: Use _id instead of userId since req.user is the User object from authMiddleware
     const userId = req.user._id || req.user.id;
     const { title, description, price, category, stock, image } = req.body;
@@ -88,7 +88,7 @@ class SellerProductController {
   /**
    * Get all products for seller
    */
-  getSellerProducts = asyncHandler(async (req, res) => {
+  static getSellerProducts = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
 
     // Validasi query params yang diizinkan untuk seller products
@@ -160,7 +160,7 @@ class SellerProductController {
   /**
    * Get single product for seller
    */
-  getSellerProduct = asyncHandler(async (req, res) => {
+  static getSellerProduct = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
     const { productId } = req.params;
 
@@ -192,7 +192,7 @@ class SellerProductController {
   /**
    * Update product
    */
-  updateProduct = asyncHandler(async (req, res) => {
+  static updateProduct = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
     const { productId } = req.params;
     const updates = req.body;
@@ -241,7 +241,7 @@ class SellerProductController {
   /**
    * Update product status
    */
-  updateProductStatus = asyncHandler(async (req, res) => {
+  static updateProductStatus = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
     const { productId } = req.params;
     const { isActive } = req.body;
@@ -287,7 +287,7 @@ class SellerProductController {
   /**
    * Delete product
    */
-  deleteProduct = asyncHandler(async (req, res) => {
+  static deleteProduct = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
     const { productId } = req.params;
 
@@ -320,7 +320,7 @@ class SellerProductController {
   /**
    * Bulk update product status
    */
-  bulkUpdateProductStatus = asyncHandler(async (req, res) => {
+  static bulkUpdateProductStatus = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
     const { productIds, isActive } = req.body;
 
@@ -368,7 +368,7 @@ class SellerProductController {
   /**
    * Bulk delete products
    */
-  bulkDeleteProducts = asyncHandler(async (req, res) => {
+  static bulkDeleteProducts = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
     const { productIds } = req.body;
 
@@ -408,7 +408,7 @@ class SellerProductController {
   /**
    * Upload product image
    */
-  uploadProductImage = asyncHandler(async (req, res) => {
+  static uploadProductImage = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
     const { productId } = req.params;
 
@@ -447,7 +447,7 @@ class SellerProductController {
   /**
    * Get dashboard stats
    */
-  getDashboardStats = asyncHandler(async (req, res) => {
+  static getDashboardStats = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
 
     logger.info(`📊 Getting dashboard stats for seller: ${userId}`);
@@ -474,7 +474,7 @@ class SellerProductController {
   /**
    * Get product statistics
    */
-  getProductStats = asyncHandler(async (req, res) => {
+  static getProductStats = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
     const { period = "30d" } = req.query;
 
@@ -507,7 +507,7 @@ class SellerProductController {
   /**
    * Get store products (public)
    */
-  getStoreProducts = asyncHandler(async (req, res) => {
+  static getStoreProducts = asyncHandler(async (req, res) => {
     const { slug } = req.params;
 
     // Validasi query params untuk public store
@@ -577,20 +577,4 @@ class SellerProductController {
   });
 }
 
-// Export controller methods
-const controller = new SellerProductController();
-
-module.exports = {
-  createProduct: controller.createProduct,
-  getSellerProducts: controller.getSellerProducts,
-  getSellerProduct: controller.getSellerProduct,
-  updateProduct: controller.updateProduct,
-  updateProductStatus: controller.updateProductStatus,
-  deleteProduct: controller.deleteProduct,
-  bulkUpdateProductStatus: controller.bulkUpdateProductStatus,
-  bulkDeleteProducts: controller.bulkDeleteProducts,
-  uploadProductImage: controller.uploadProductImage,
-  getDashboardStats: controller.getDashboardStats,
-  getProductStats: controller.getProductStats,
-  getStoreProducts: controller.getStoreProducts,
-};
+module.exports = SellerProductController;

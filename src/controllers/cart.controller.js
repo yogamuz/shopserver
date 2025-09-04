@@ -1,15 +1,17 @@
-// controllers/cartController.js - REFACTORED VERSION
+// controllers/cartController.js - REFACTORED TO CLASS-BASED VERSION
 const { HTTP_STATUS, MESSAGES } = require("../constants/httpStatus");
 const CartService = require("../services/cart.service");
 const CouponService = require("../services/coupon.service");
+const asyncHandler = require('../middlewares/asyncHandler');
 
 // Import logger
 const logger = require("../utils/logger");
-/**
- * GET /api/cart - Get user's cart
- */
-exports.getCart = async (req, res) => {
-  try {
+
+class CartController {
+  /**
+   * GET /api/cart - Get user's cart
+   */
+  static getCart = asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const cartData = await CartService.getUserCart(userId);
 
@@ -17,28 +19,12 @@ exports.getCart = async (req, res) => {
       success: true,
       data: cartData
     });
-  } catch (error) {
-    logger.error("⚡ Error getting cart:", error);
-    
-    if (error.status) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message
-      });
-    }
+  });
 
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: MESSAGES.CART.GET_FAILED
-    });
-  }
-};
-
-/**
- * POST /api/cart/add - Add item to cart
- */
-exports.addToCart = async (req, res) => {
-  try {
+  /**
+   * POST /api/cart/add - Add item to cart
+   */
+  static addToCart = asyncHandler(async (req, res) => {
     const { productId, quantity = 1 } = req.body;
     const userId = req.user._id;
 
@@ -49,30 +35,12 @@ exports.addToCart = async (req, res) => {
       message: MESSAGES.CART.ITEM_ADDED,
       data: cart,
     });
-  } catch (error) {
-    logger.error("⚡ Error adding to cart:", error);
+  });
 
-    if (error.status) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-        data: error.data,
-      });
-    }
-
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: MESSAGES.CART.ADD_FAILED,
-      error: error.message,
-    });
-  }
-};
-
-/**
- * PUT /api/cart/update/:productId - Update item quantity
- */
-exports.updateCartItem = async (req, res) => {
-  try {
+  /**
+   * PUT /api/cart/update/:productId - Update item quantity
+   */
+  static updateCartItem = asyncHandler(async (req, res) => {
     const { productId } = req.params;
     const { quantity } = req.body;
     const userId = req.user._id;
@@ -90,31 +58,12 @@ exports.updateCartItem = async (req, res) => {
         : MESSAGES.CART.ITEM_UPDATED,
       data: result.cart,
     });
-  } catch (error) {
-    logger.error("⚡ Error updating cart item:", error);
-    logger.error("⚡ Error stack:", error.stack);
+  });
 
-    if (error.status) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-        data: error.data,
-      });
-    }
-
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: MESSAGES.CART.UPDATE_FAILED,
-      error: error.message,
-    });
-  }
-};
-
-/**
- * DELETE /api/cart/remove/:productId - Remove item from cart
- */
-exports.removeFromCart = async (req, res) => {
-  try {
+  /**
+   * DELETE /api/cart/remove/:productId - Remove item from cart
+   */
+  static removeFromCart = asyncHandler(async (req, res) => {
     const { productId } = req.params;
     const userId = req.user._id;
 
@@ -125,29 +74,12 @@ exports.removeFromCart = async (req, res) => {
       message: MESSAGES.CART.ITEM_REMOVED,
       data: cart,
     });
-  } catch (error) {
-    logger.error("⚡ Error removing from cart:", error);
+  });
 
-    if (error.status) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-      });
-    }
-
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: MESSAGES.CART.REMOVE_FAILED,
-      error: error.message,
-    });
-  }
-};
-
-/**
- * DELETE /api/cart/clear - Clear entire cart
- */
-exports.clearCart = async (req, res) => {
-  try {
+  /**
+   * DELETE /api/cart/clear - Clear entire cart
+   */
+  static clearCart = asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const cart = await CartService.clearCart(userId);
 
@@ -156,29 +88,12 @@ exports.clearCart = async (req, res) => {
       message: MESSAGES.CART.CLEARED,
       data: cart,
     });
-  } catch (error) {
-    logger.error("⚡ Error clearing cart:", error);
+  });
 
-    if (error.status) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-      });
-    }
-
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: MESSAGES.CART.CLEAR_FAILED,
-      error: error.message,
-    });
-  }
-};
-
-/**
- * POST /api/cart/coupon - Apply coupon to cart
- */
-exports.applyCoupon = async (req, res) => {
-  try {
+  /**
+   * POST /api/cart/coupon - Apply coupon to cart
+   */
+  static applyCoupon = asyncHandler(async (req, res) => {
     const { couponCode } = req.body;
     const userId = req.user._id;
 
@@ -189,29 +104,12 @@ exports.applyCoupon = async (req, res) => {
       message: MESSAGES.CART.COUPON_APPLIED,
       data: result,
     });
-  } catch (error) {
-    logger.error("⚡ Error applying coupon:", error);
+  });
 
-    if (error.status) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-      });
-    }
-
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: MESSAGES.CART.COUPON_APPLY_FAILED,
-      error: error.message,
-    });
-  }
-};
-
-/**
- * DELETE /api/cart/coupon - Remove coupon from cart
- */
-exports.removeCoupon = async (req, res) => {
-  try {
+  /**
+   * DELETE /api/cart/coupon - Remove coupon from cart
+   */
+  static removeCoupon = asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const result = await CouponService.removeCoupon(userId);
 
@@ -220,29 +118,12 @@ exports.removeCoupon = async (req, res) => {
       message: MESSAGES.CART.COUPON_REMOVED,
       data: result,
     });
-  } catch (error) {
-    logger.error("⚡ Error removing coupon:", error);
+  });
 
-    if (error.status) {
-      return res.status(error.status).json({
-        success: false,
-        message: error.message,
-      });
-    }
-
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: MESSAGES.CART.COUPON_REMOVE_FAILED,
-      error: error.message,
-    });
-  }
-};
-
-/**
- * GET /api/cart/count - Get cart items count
- */
-exports.getCartCount = async (req, res) => {
-  try {
+  /**
+   * GET /api/cart/count - Get cart items count
+   */
+  static getCartCount = asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const result = await CartService.getCartCount(userId);
 
@@ -250,12 +131,7 @@ exports.getCartCount = async (req, res) => {
       success: true,
       data: result,
     });
-  } catch (error) {
-    logger.error("⚡ Error fetching cart count:", error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: MESSAGES.CART.COUNT_GET_FAILED,
-      error: error.message,
-    });
-  }
-};
+  });
+}
+
+module.exports = CartController;

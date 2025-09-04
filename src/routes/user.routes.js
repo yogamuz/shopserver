@@ -2,9 +2,10 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/user.controller');
+const WalletController = require('../controllers/wallet.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 const rateLimitMiddleware = require('../middlewares/rate-limit.middleware');
-const { createUploadMiddleware } = require('../utils/image-uploader.util');
+const { createUploadMiddleware } = require('../utils/cloudinary-uploader.util');
 
 // Rate limiting untuk semua user routes
 router.use(rateLimitMiddleware.userApiLimit);
@@ -30,6 +31,17 @@ router
   .route('/me/avatar')
   .post(avatarUpload.single('avatar'), userController.uploadMyAvatar)
   .delete(userController.removeMyAvatar);
+
+
+
+// User Wallet routes
+router.get('/wallet/balance', WalletController.getBalance);
+router.get('/wallet/transactions', WalletController.getTransactions);
+router.get('/wallet/stats', WalletController.getStats);
+router.get('/wallet/check-balance', WalletController.checkBalance);
+router.post('wallet/validate-payment', WalletController.validatePayment);
+router.get('/wallet/pending-earnings', WalletController.getPendingEarnings);
+router.post('/wallet/setPin',WalletController.setPin);
 
 // ADMIN ONLY ROUTES
 router.use(authMiddleware.restrictTo('admin'));

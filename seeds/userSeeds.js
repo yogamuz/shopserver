@@ -15,6 +15,20 @@ const userSeeds = [
     password: "adminshopcart",
     role: "admin"
   },
+  {
+    username: "muz",
+    email: "yogamuz13@gmail.com",
+    password: "muz1234",
+    role: "user"
+  },
+  {
+    username: "rudy_gans",
+    email: "rudy@gmail.com",
+    password : "rudy1234",
+    role: "seller"
+  
+  }
+
 ];
 
 const profileSeeds = [

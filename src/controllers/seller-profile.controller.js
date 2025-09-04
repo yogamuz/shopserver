@@ -1,8 +1,10 @@
+// seller-profile.controller.js - REFACTORED TO CLASS-BASED VERSION
 const asyncHandler = require("../middlewares/asyncHandler");
 const sellerProfileService = require("../services/seller-profile.service");
 const ResponseHelper = require("../utils/response.helper");
 const { HTTP_STATUS, MESSAGES } = require("../constants/httpStatus");
 const logger = require("../utils/logger");
+
 /**
  * Seller Profile Controller
  * Handles HTTP requests and delegates business logic to service layer
@@ -11,7 +13,7 @@ class SellerProfileController {
   /**
    * Create seller profile
    */
-  createProfile = asyncHandler(async (req, res) => {
+  static createProfile = asyncHandler(async (req, res) => {
     // FIX: Use _id instead of userId since req.user is the User object from authMiddleware
     const userId = req.user._id || req.user.id;
     const { storeName, description, address, contact } = req.body;
@@ -62,7 +64,7 @@ class SellerProfileController {
   /**
    * Get seller profile
    */
-  getProfile = asyncHandler(async (req, res) => {
+  static getProfile = asyncHandler(async (req, res) => {
     // FIX: Use _id instead of userId
     const userId = req.user._id || req.user.id;
 
@@ -85,10 +87,7 @@ class SellerProfileController {
   /**
    * Update seller profile
    */
-  /**
-   * Update seller profile - Fixed version
-   */
-  updateProfile = asyncHandler(async (req, res) => {
+  static updateProfile = asyncHandler(async (req, res) => {
     // FIX: Use _id instead of userId
     const userId = req.user._id || req.user.id;
     const updates = req.body;
@@ -140,7 +139,7 @@ class SellerProfileController {
   /**
    * Upload store images (logo/banner)
    */
-  uploadStoreImage = asyncHandler(async (req, res) => {
+  static uploadStoreImage = asyncHandler(async (req, res) => {
     // FIX: Use _id instead of userId
     const userId = req.user._id || req.user.id;
     const { imageType } = req.params;
@@ -176,7 +175,7 @@ class SellerProfileController {
   /**
    * Archive seller profile
    */
-  archiveProfile = asyncHandler(async (req, res) => {
+  static archiveProfile = asyncHandler(async (req, res) => {
     // FIX: Use _id instead of userId
     const userId = req.user._id || req.user.id;
 
@@ -201,7 +200,7 @@ class SellerProfileController {
   /**
    * Restore seller profile
    */
-  restoreProfile = asyncHandler(async (req, res) => {
+  static restoreProfile = asyncHandler(async (req, res) => {
     // FIX: Use _id instead of userId
     const userId = req.user._id || req.user.id;
 
@@ -226,7 +225,7 @@ class SellerProfileController {
   /**
    * Soft delete seller profile
    */
-  softDeleteProfile = asyncHandler(async (req, res) => {
+  static softDeleteProfile = asyncHandler(async (req, res) => {
     // FIX: Use _id instead of userId
     const userId = req.user._id || req.user.id;
 
@@ -250,7 +249,7 @@ class SellerProfileController {
   /**
    * Admin soft delete seller profile by profileId
    */
-  adminSoftDeleteProfile = asyncHandler(async (req, res) => {
+  static adminSoftDeleteProfile = asyncHandler(async (req, res) => {
     const { profileId } = req.params;
 
     logger.info(`🗑️ Admin soft deleting seller profile: ${profileId}`);
@@ -275,59 +274,59 @@ class SellerProfileController {
     );
   });
 
-/**
- * Get specific profile detail for admin
- */
-getAdminProfileDetail = asyncHandler(async (req, res) => {
-  const { profileId } = req.params;
+  /**
+   * Get specific profile detail for admin
+   */
+  static getAdminProfileDetail = asyncHandler(async (req, res) => {
+    const { profileId } = req.params;
 
-  logger.info(`👑 Admin getting profile detail: ${profileId}`);
+    logger.info(`👑 Admin getting profile detail: ${profileId}`);
 
-  const profileData = await sellerProfileService.getProfileById(profileId);
+    const profileData = await sellerProfileService.getProfileById(profileId);
 
-  if (!profileData) {
-    return ResponseHelper.notFound(res, MESSAGES.SELLER_PROFILE.NOT_FOUND);
-  }
+    if (!profileData) {
+      return ResponseHelper.notFound(res, MESSAGES.SELLER_PROFILE.NOT_FOUND);
+    }
 
-  return ResponseHelper.success(
-    res,
-    HTTP_STATUS.OK,
-    "Profile detail retrieved successfully",
-    profileData
-  );
-});
-
-/**
- * Admin activate seller profile by profileId
- */
-adminActivateProfile = asyncHandler(async (req, res) => {
-  const { profileId } = req.params;
-
-  logger.info(`🔄 Admin activating seller profile: ${profileId}`);
-
-  const activatedProfile = await sellerProfileService.adminActivateProfile(profileId);
-
-  if (!activatedProfile) {
-    return ResponseHelper.notFound(
+    return ResponseHelper.success(
       res,
-      "No deactivated profile found to activate"
+      HTTP_STATUS.OK,
+      "Profile detail retrieved successfully",
+      profileData
     );
-  }
+  });
 
-  logger.info(`✅ Seller profile activated by admin: ${activatedProfile.storeName}`);
+  /**
+   * Admin activate seller profile by profileId
+   */
+  static adminActivateProfile = asyncHandler(async (req, res) => {
+    const { profileId } = req.params;
 
-  return ResponseHelper.success(
-    res,
-    HTTP_STATUS.OK,
-    MESSAGES.SELLER_PROFILE.ACTIVATED,
-    activatedProfile
-  );
-});
+    logger.info(`🔄 Admin activating seller profile: ${profileId}`);
+
+    const activatedProfile = await sellerProfileService.adminActivateProfile(profileId);
+
+    if (!activatedProfile) {
+      return ResponseHelper.notFound(
+        res,
+        "No deactivated profile found to activate"
+      );
+    }
+
+    logger.info(`✅ Seller profile activated by admin: ${activatedProfile.storeName}`);
+
+    return ResponseHelper.success(
+      res,
+      HTTP_STATUS.OK,
+      MESSAGES.SELLER_PROFILE.ACTIVATED,
+      activatedProfile
+    );
+  });
 
   /**
    * Hard delete seller profile (admin only)
    */
-  hardDeleteProfile = asyncHandler(async (req, res) => {
+  static hardDeleteProfile = asyncHandler(async (req, res) => {
     const { profileId } = req.params;
 
     logger.info(`💥 Hard deleting seller profile: ${profileId}`);
@@ -350,7 +349,7 @@ adminActivateProfile = asyncHandler(async (req, res) => {
   /**
    * Activate seller profile
    */
-  activateProfile = asyncHandler(async (req, res) => {
+  static activateProfile = asyncHandler(async (req, res) => {
     const userId = req.user._id || req.user.id;
 
     logger.info(`🔄 Activating seller profile for user: ${userId}`);
@@ -377,7 +376,7 @@ adminActivateProfile = asyncHandler(async (req, res) => {
   /**
    * Get public seller profile by slug
    */
-  getPublicProfile = asyncHandler(async (req, res) => {
+  static getPublicProfile = asyncHandler(async (req, res) => {
     const { slug } = req.params;
     const {
       page = 1,
@@ -410,7 +409,7 @@ adminActivateProfile = asyncHandler(async (req, res) => {
   /**
    * Get all active stores (public)
    */
-  getAllStores = asyncHandler(async (req, res) => {
+  static getAllStores = asyncHandler(async (req, res) => {
     const {
       page = 1,
       limit = 12,
@@ -440,22 +439,4 @@ adminActivateProfile = asyncHandler(async (req, res) => {
   });
 }
 
-// Export controller methods
-const controller = new SellerProfileController();
-
-module.exports = {
-  createProfile: controller.createProfile,
-  getProfile: controller.getProfile,
-  updateProfile: controller.updateProfile,
-  uploadStoreImage: controller.uploadStoreImage,
-  archiveProfile: controller.archiveProfile,
-  restoreProfile: controller.restoreProfile,
-  softDeleteProfile: controller.softDeleteProfile,
-  adminSoftDeleteProfile: controller.adminSoftDeleteProfile, // ← TAMBAH INI
-  getAdminProfileDetail: controller.getAdminProfileDetail, // TAMBAH INI
-  adminActivateProfile: controller.adminActivateProfile,
-  activateProfile: controller.activateProfile,
-  hardDeleteProfile: controller.hardDeleteProfile,
-  getPublicProfile: controller.getPublicProfile,
-  getAllStores: controller.getAllStores,
-};
+module.exports = SellerProfileController;

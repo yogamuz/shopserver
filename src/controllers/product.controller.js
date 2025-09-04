@@ -1,16 +1,12 @@
-// controllers/productController.js (Complete Enhanced Version)
-const {
-  getAllProductsService,
-  getProductByIdService,
-  createProductService,
-  updateProductService,
-  deleteProductService
-} = require('../services/product.service');
+const ProductService = require('../services/product.service');
+const asyncHandler = require('../middlewares/asyncHandler');
 const { HTTP_STATUS, MESSAGES } = require('../constants/httpStatus');
 
-// GET all products with advanced filtering and pagination
-const getAllProducts = async (req, res, next) => {
-  try {
+class ProductController {
+  /**
+   * GET / - Get all products with advanced filtering and pagination
+   */
+  static getAllProducts = asyncHandler(async (req, res) => {
     // Validasi query params yang diizinkan
     const allowedParams = [
       'category', 'page', 'limit', 'search', 'sortBy', 'sortOrder', 
@@ -30,114 +26,60 @@ const getAllProducts = async (req, res, next) => {
       });
     }
     
-    const result = await getAllProductsService(req.query);
+    const result = await ProductService.getAllProducts(req.query);
     
     res.status(HTTP_STATUS.OK).json({
       success: true,
       ...result
     });
-  } catch (error) {
-    next(error);
-  }
-};
+  });
 
-// GET single product by ID
-const getProductById = async (req, res, next) => {
-  try {
+  /**
+   * GET /:id - Get single product by ID
+   */
+  static getProductById = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { includeDeleted } = req.query;
     
-    const product = await getProductByIdService(id, { includeDeleted });
+    const product = await ProductService.getProductById(id, { includeDeleted });
     
     res.status(HTTP_STATUS.OK).json({
       success: true,
       product
     });
-  } catch (error) {
-    // Handle CastError for invalid ObjectId
-    if (error.name === 'CastError') {
-      error.message = 'Invalid product ID format';
-      error.statusCode = HTTP_STATUS.BAD_REQUEST;
-      error.details = 'Product ID must be a valid 24-character MongoDB ObjectId';
-    }
-    
-    next(error);
-  }
-};
+  });
 
-// CREATE new product (Admin/Seller only)
-const createProduct = async (req, res, next) => {
-  try {
-    const product = await createProductService(req.body, req.user);
+  /**
+   * POST / - Create new product (Admin/Seller only)
+   */
+  static createProduct = asyncHandler(async (req, res) => {
+    const product = await ProductService.createProduct(req.body, req.user);
     
     res.status(HTTP_STATUS.CREATED).json({
       success: true,
       product,
       message: MESSAGES.PRODUCT.CREATED
     });
-  } catch (error) {
-    // Handle ValidationError
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      error.message = 'Product validation failed';
-      error.statusCode = HTTP_STATUS.BAD_REQUEST;
-      error.details = errors;
-    } else if (error.code === 11000) {
-      // Handle duplicate key error
-      error.message = 'Product with this title already exists';
-      error.statusCode = HTTP_STATUS.BAD_REQUEST;
-    } else if (error.code === 'INVALID_CATEGORY') {
-      error.message = 'Category not found or inactive';
-      error.statusCode = HTTP_STATUS.BAD_REQUEST;
-    } else if (error.code === 'INVALID_SELLER') {
-      error.message = 'Seller profile not found or inactive';
-      error.statusCode = HTTP_STATUS.BAD_REQUEST;
-    }
-    
-    next(error);
-  }
-};
+  });
 
-// UPDATE product (Admin/Seller only)
-const updateProduct = async (req, res, next) => {
-  try {
+  /**
+   * PUT /:id - Update product (Admin/Seller only)
+   */
+  static updateProduct = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const product = await updateProductService(id, req.body, req.user);
+    const product = await ProductService.updateProduct(id, req.body, req.user);
     
     res.status(HTTP_STATUS.OK).json({
       success: true,
       product,
       message: MESSAGES.PRODUCT.UPDATED
     });
-  } catch (error) {
-    // Handle specific error types
-    if (error.name === 'CastError') {
-      error.message = 'Invalid product ID format';
-      error.statusCode = HTTP_STATUS.BAD_REQUEST;
-      error.details = 'Product ID must be a valid 24-character MongoDB ObjectId';
-    } else if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      error.message = 'Product validation failed';
-      error.statusCode = HTTP_STATUS.BAD_REQUEST;
-      error.details = errors;
-    } else if (error.code === 11000) {
-      error.message = 'Product with this title already exists';
-      error.statusCode = HTTP_STATUS.BAD_REQUEST;
-    } else if (error.code === 'INVALID_CATEGORY') {
-      error.message = 'Category not found or inactive';
-      error.statusCode = HTTP_STATUS.BAD_REQUEST;
-    } else if (error.code === 'INVALID_SELLER') {
-      error.message = 'Seller profile not found or inactive';
-      error.statusCode = HTTP_STATUS.BAD_REQUEST;
-    }
-    
-    next(error);
-  }
-};
+  });
 
-// DELETE product (Admin/Seller only)
-const deleteProduct = async (req, res, next) => {
-  try {
+  /**
+   * DELETE /:id - Delete product (Admin/Seller only)
+   */
+  static deleteProduct = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { hard } = req.query; // Support hard delete via query param
     
@@ -147,22 +89,7 @@ const deleteProduct = async (req, res, next) => {
       success: true,
       message: hard === 'true' ? 'Product permanently deleted' : MESSAGES.PRODUCT.DELETED
     });
-  } catch (error) {
-    // Handle CastError for invalid ObjectId
-    if (error.name === 'CastError') {
-      error.message = 'Invalid product ID format';
-      error.statusCode = HTTP_STATUS.BAD_REQUEST;
-      error.details = 'Product ID must be a valid 24-character MongoDB ObjectId';
-    }
-    
-    next(error);
-  }
-};
+  });
+}
 
-module.exports = {
-  getAllProducts,
-  getProductById,
-  createProduct,
-  updateProduct,
-  deleteProduct
-};
+module.exports = ProductController;

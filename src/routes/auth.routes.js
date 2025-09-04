@@ -20,24 +20,17 @@ try {
 // Public Auth Routes (NO CSRF REQUIRED)
 // ====================================
 
-// CSRF token endpoint - HARUS PUBLIC (tidak butuh CSRF)
+
 
 // Token refresh - biasanya tidak butuh CSRF karena pakai httpOnly cookie
 router.post('/refresh', rateLimitMiddleware.authLimit, authController.refresh);
 
-// ====================================
-// Auth Routes WITH CSRF Protection
-// ====================================
-
-// Login & Registration - BUTUH CSRF token
 router.post('/login', rateLimitMiddleware.authLimit,  authController.login);
 router.post('/register', rateLimitMiddleware.authLimit,  authController.register);
 
-// Password reset - BUTUH CSRF token untuk security
 router.post('/forgot-password', rateLimitMiddleware.authLimit, authController.forgotPassword);
 router.put('/reset-password', rateLimitMiddleware.authLimit,  authController.resetPassword);
 
-// Logout - BUTUH CSRF token 
 router.post('/logout', authController.logout);
 
 // ====================================
