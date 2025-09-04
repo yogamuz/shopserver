@@ -4,7 +4,7 @@ const Product = require("../models/products.model");
 const User = require("../models/user.model");
 const slugify = require("../utils/slugify");
 const imageUploader = require("../utils/cloudinary-uploader.util");
-
+const logger = require("../utils/logger");
 class SellerProfileService {
   /**
    * Find seller profile by userId
