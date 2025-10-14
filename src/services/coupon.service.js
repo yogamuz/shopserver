@@ -1,8 +1,8 @@
-// services/couponService.js
+// services/couponService.js - FIXED imports section (add at top of file)
 const Cart = require('../models/cart.model');
 const Coupon = require('../models/coupon.model');
 const { HTTP_STATUS, MESSAGES } = require('../constants/httpStatus');
-const { populateCart } = require('../utils/cart.util');
+const { populateCart, formatCartResponse } = require('../utils/cart.util'); // FIXED: Add formatCartResponse import
 const logger = require('../utils/logger');
 
 
@@ -10,151 +10,160 @@ class CouponService {
   /**
    * Apply coupon to cart
    */
-  static async applyCoupon(userId, couponCode) {
-    if (!couponCode) {
-      throw {
-        status: HTTP_STATUS.BAD_REQUEST,
-        message: MESSAGES.CART.COUPON_CODE_REQUIRED
-      };
-    }
-
-    let cart = await Cart.findByUser(userId);
-    if (!cart || cart.items.length === 0) {
-      throw {
-        status: HTTP_STATUS.BAD_REQUEST,
-        message: MESSAGES.CART.EMPTY
-      };
-    }
-
-    // Populate cart items to get categories
-    await cart.populate({
-      path: 'items.product',
-      select: 'category',
-      populate: {
-        path: 'category',
-        select: 'name'
-      }
-    });
-
-    // Populate with full details for response
-    await populateCart(cart);
-
-    // Find valid coupon
-    const coupon = await Coupon.findValidCoupon(couponCode);
-    if (!coupon) {
-      throw {
-        status: HTTP_STATUS.BAD_REQUEST,
-        message: MESSAGES.CART.INVALID_COUPON
-      };
-    }
-
-    // Check if cart already has a coupon
-    if (cart.appliedCoupon) {
-      throw {
-        status: HTTP_STATUS.BAD_REQUEST,
-        message: MESSAGES.CART.COUPON_EXISTS
-      };
-    }
-
-    // Calculate prices and validate coupon
-    const priceCalculation = this.calculateCouponPrices(cart, coupon);
-    
-    // Validate minimum amount
-    if (priceCalculation.applicablePrice < coupon.minAmount) {
-      throw {
-        status: HTTP_STATUS.BAD_REQUEST,
-        message: `${MESSAGES.CART.MINIMUM_AMOUNT_NOT_MET} ${new Intl.NumberFormat('id-ID', {
-          style: 'currency',
-          currency: 'IDR',
-          minimumFractionDigits: 0
-        }).format(coupon.minAmount)} ${coupon.category ? `for ${coupon.category} products` : ''} for this coupon`
-      };
-    }
-
-    // Check category match for category-specific coupons
-    if (coupon.category && priceCalculation.applicablePrice === 0) {
-      throw {
-        status: HTTP_STATUS.BAD_REQUEST,
-        message: `${MESSAGES.CART.COUPON_CATEGORY_MISMATCH} ${coupon.category} products`
-      };
-    }
-
-    // Calculate discount amount
-    const discountAmount = Math.min(
-      (priceCalculation.applicablePrice * coupon.discount) / 100, 
-      coupon.maxDiscount
-    );
-
-    // Apply coupon to cart
-    cart.appliedCoupon = {
-      couponId: coupon._id,
-      code: coupon.code,
-      discount: coupon.discount,
-      discountAmount: discountAmount,
-      appliedAt: new Date()
-    };
-
-    await cart.save();
-
-    // Increment coupon usage count
-    await coupon.use();
-
-    logger.info(`✅ Coupon applied: ${couponCode} (discount: ${discountAmount})`);
-
-    return {
-      cart: cart.toObject(),
-      couponDetails: {
-        code: coupon.code,
-        discount: coupon.discount,
-        category: coupon.category,
-        description: coupon.description
-      },
-      totalPrice: priceCalculation.totalPrice,
-      discountAmount: discountAmount,
-      finalPrice: priceCalculation.totalPrice - discountAmount
+/**
+ * Apply coupon to cart - FIXED with clean response
+ */
+static async applyCoupon(userId, couponCode) {
+  if (!couponCode) {
+    throw {
+      status: HTTP_STATUS.BAD_REQUEST,
+      message: MESSAGES.CART.COUPON_CODE_REQUIRED
     };
   }
+
+  let cart = await Cart.findByUser(userId);
+  if (!cart || cart.items.length === 0) {
+    throw {
+      status: HTTP_STATUS.BAD_REQUEST,
+      message: MESSAGES.CART.EMPTY
+    };
+  }
+
+  // Populate cart items to get categories
+  await cart.populate({
+    path: 'items.product',
+    select: 'category',
+    populate: {
+      path: 'category',
+      select: 'name'
+    }
+  });
+
+  // Find valid coupon
+  const coupon = await Coupon.findValidCoupon(couponCode);
+  if (!coupon) {
+    throw {
+      status: HTTP_STATUS.BAD_REQUEST,
+      message: MESSAGES.CART.INVALID_COUPON
+    };
+  }
+
+  // Check if cart already has a coupon
+  if (cart.appliedCoupon) {
+    throw {
+      status: HTTP_STATUS.BAD_REQUEST,
+      message: MESSAGES.CART.COUPON_EXISTS
+    };
+  }
+
+  // Calculate prices and validate coupon
+  const priceCalculation = this.calculateCouponPrices(cart, coupon);
+  
+  // Validate minimum amount
+  if (priceCalculation.applicablePrice < coupon.minAmount) {
+    throw {
+      status: HTTP_STATUS.BAD_REQUEST,
+      message: `${MESSAGES.CART.MINIMUM_AMOUNT_NOT_MET} ${new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0
+      }).format(coupon.minAmount)} ${coupon.category ? `for ${coupon.category} products` : ''} for this coupon`
+    };
+  }
+
+  // Check category match for category-specific coupons
+  if (coupon.category && priceCalculation.applicablePrice === 0) {
+    throw {
+      status: HTTP_STATUS.BAD_REQUEST,
+      message: `${MESSAGES.CART.COUPON_CATEGORY_MISMATCH} ${coupon.category} products`
+    };
+  }
+
+  // Calculate discount amount
+  const discountAmount = Math.min(
+    (priceCalculation.applicablePrice * coupon.discount) / 100, 
+    coupon.maxDiscount
+  );
+
+  // Apply coupon to cart
+  cart.appliedCoupon = {
+    couponId: coupon._id,
+    code: coupon.code,
+    discount: coupon.discount,
+    discountAmount: discountAmount,
+    maxDiscount: coupon.maxDiscount,
+    appliedAt: new Date()
+  };
+
+  await cart.save();
+
+  // Increment coupon usage count
+  await coupon.use();
+
+  // Populate with full details for clean response
+  await populateCart(cart);
+
+  logger.info(`Coupon applied: ${couponCode} (discount: ${discountAmount})`);
+
+  // FIXED: Return clean, structured response using formatCartResponse
+  return {
+    cart: formatCartResponse(cart),
+    couponDetails: {
+      code: coupon.code,
+      type: 'percentage',
+      discount: coupon.discount,
+      category: coupon.category || 'all',
+      description: coupon.description,
+      discountAmount: discountAmount
+    },
+    pricing: {
+      subtotal: priceCalculation.totalPrice,
+      discount: discountAmount,
+      total: priceCalculation.totalPrice - discountAmount,
+      savings: discountAmount,
+      currency: 'IDR'
+    }
+  };
+}
 
   /**
-   * Remove coupon from cart
+   * remove coupons from cart
    */
-  static async removeCoupon(userId) {
-    let cart = await Cart.findByUser(userId);
-    if (!cart) {
-      throw {
-        status: HTTP_STATUS.NOT_FOUND,
-        message: MESSAGES.CART.NOT_FOUND
-      };
-    }
-
-    if (!cart.appliedCoupon) {
-      throw {
-        status: HTTP_STATUS.BAD_REQUEST,
-        message: MESSAGES.CART.NO_COUPON_TO_REMOVE
-      };
-    }
-
-    // Store coupon info before removing
-    const removedCouponId = cart.appliedCoupon.couponId;
-
-    // Remove coupon from cart
-    cart.appliedCoupon = undefined;
-    await cart.save();
-
-    // Decrement coupon usage count
-    await this.decrementCouponUsage(removedCouponId);
-
-    // Populate for response
-    await populateCart(cart);
-
-    logger.info(`✅ Coupon removed from cart`);
-
-    return {
-      cart: cart.toObject(),
-      totalPrice: cart.calculateTotal(),
-      finalPrice: cart.calculateFinalPrice()
+static async removeCoupon(userId) {
+  let cart = await Cart.findByUser(userId);
+  if (!cart) {
+    throw {
+      status: HTTP_STATUS.NOT_FOUND,
+      message: MESSAGES.CART.NOT_FOUND
     };
   }
+
+  if (!cart.appliedCoupon) {
+    throw {
+      status: HTTP_STATUS.BAD_REQUEST,
+      message: MESSAGES.CART.NO_COUPON_TO_REMOVE
+    };
+  }
+
+  // Store coupon info before removing
+  const removedCouponId = cart.appliedCoupon.couponId;
+
+  // Remove coupon directly from the cart instance
+  cart.appliedCoupon = undefined;
+  await cart.save();
+
+  // Decrement coupon usage count
+  await this.decrementCouponUsage(removedCouponId);
+
+  // Populate cart for response
+  await populateCart(cart);
+
+  logger.info(`Coupon removed from cart for user: ${userId}`);
+
+  // Return properly formatted response
+  return formatCartResponse(cart);
+}
+
 
   /**
    * Get available coupons for user's cart

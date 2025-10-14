@@ -43,6 +43,11 @@ const appliedCouponSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    maxDiscount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
     appliedAt: {
       type: Date,
       default: Date.now,

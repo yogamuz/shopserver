@@ -196,6 +196,111 @@ class EmailService {
   }
 
   /**
+ * Kirim notifikasi email ketika user berhasil upgrade ke seller menggunakan Resend API
+ * @param {Object} user - User object dengan properties: username, email
+ * @param {Object} sellerProfile - Seller profile object dengan properties: shopName, businessType
+ * @returns {Promise<Object>} Result object dengan method dan messageId
+ */
+static async sendSellerUpgradeNotification(user, sellerProfile) {
+  try {
+      EmailService.logger.info(`📧 Email Service - Received user role: ${user.role}`);
+    EmailService.logger.info(`📧 Preparing to send seller upgrade notification to: ${user.email}`);
+    
+    // Validasi input
+    if (!user || !user.email || !user.username) {
+      throw new Error('User object must contain email and username');
+    }
+    
+    if (!sellerProfile || !sellerProfile.shopName) {
+      throw new Error('Seller profile must contain shop name');
+    }
+    
+    // Validasi API key
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY environment variable is required');
+    }
+    
+    // Import template helper
+    const { createSellerUpgradeNotificationTemplate } = require('../utils/email.helper');
+    
+    // Generate HTML content menggunakan template
+    const htmlContent = createSellerUpgradeNotificationTemplate(user, sellerProfile, EmailService.senderInfo);
+    
+    // Subject email
+    const subject = `🎉 Welcome to Sellers - ${sellerProfile.shopName}`;
+    
+    // Email payload
+    const emailPayload = {
+      from: `${EmailService.senderInfo.name} <${EmailService.senderInfo.email}>`,
+      to: [user.email],
+      subject: subject,
+      html: htmlContent,
+      // Text version sebagai fallback
+      text: `
+        Congratulations! Seller Account Activated
+        
+        Hi ${user.username},
+        
+        Your account has been successfully upgraded to a seller account.
+        
+        Shop Details:
+        - Shop Name: ${sellerProfile.shopName}
+        - Business Type: ${sellerProfile.businessType || 'Not specified'}
+        - Status: Active
+        - Activated on: ${new Date().toLocaleString()}
+        
+        Next Steps:
+        1. Complete your shop profile
+        2. Add your first product
+        3. Set up payment methods
+        4. Review seller guidelines
+        
+        Access your seller dashboard: ${process.env.CLIENT_URL || 'http://localhost:3000'}/seller/dashboard
+        
+        Need help? Contact us at ${EmailService.senderInfo.supportEmail}
+        
+        Best regards,
+        ${EmailService.senderInfo.name} Team
+      `.trim()
+    };
+    
+    EmailService.logger.info(`📨 Sending seller upgrade notification via Resend API...`);
+    
+    // Kirim email menggunakan Resend
+    const response = await EmailService.resend.emails.send(emailPayload);
+    
+    // Log success
+    EmailService.logger.info(`✅ Seller upgrade notification sent successfully via Resend:`, {
+      messageId: response?.data?.id,
+      to: user.email,
+      subject: subject,
+      shopName: sellerProfile.shopName
+    });
+    
+    return {
+      success: true,
+      method: 'resend',
+      messageId: response?.data?.id,
+      to: user.email,
+      subject: subject,
+      timestamp: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    EmailService.logger.error('❌ Failed to send seller upgrade notification:', error);
+    
+    // Return error object instead of throwing
+    return {
+      success: false,
+      method: 'resend',
+      messageId: null,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    };
+  }
+}
+
+  /**
    * Verifikasi konfigurasi email service
    * @returns {Object} Configuration status
    */

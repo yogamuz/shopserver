@@ -1,6 +1,4 @@
-// ========================================
-// FILE: src/utils/cookieHelper.js
-// ========================================
+// Fixed cookie-helper.js with consistent expiry times
 class CookieHelper {
   static getBaseCookieOptions() {
     return {
@@ -10,12 +8,13 @@ class CookieHelper {
     };
   }
 
+  // **FIX**: Consistent access token expiry
   static getAccessTokenExpiry(userRole) {
-    return userRole === 'admin' ? 2 * 60 * 60 * 1000 : 5 * 60 * 1000;
+    return userRole === "admin" ? 2 * 60 * 60 * 1000 : 15 * 60 * 1000; // Admin 2h, User 15m
   }
 
   static getRefreshTokenExpiry() {
-    return 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+    return 30 * 24 * 60 * 60 * 1000; // 30 days untuk match absolute expiry
   }
 
   static setCookies(res, accessToken, refreshToken, userRole) {
@@ -38,7 +37,7 @@ class CookieHelper {
 
     res.cookie("authToken", accessToken, {
       ...cookieOptions,
-      maxAge: 5 * 60 * 1000, // 5 minutes for registration
+      maxAge: 1000 * 60 * 5, // 5 minutes for registration
     });
 
     res.cookie("refreshToken", refreshToken, {
@@ -47,9 +46,10 @@ class CookieHelper {
     });
   }
 
+  // **FIX**: Use consistent expiry calculation
   static setAccessTokenCookie(res, accessToken, userRole) {
     const cookieOptions = this.getBaseCookieOptions();
-    const accessTokenExpiry = userRole === 'admin' ? 2 * 60 * 60 * 1000 : 60 * 60 * 1000; // admin 2 hours or user 1 hour
+    const accessTokenExpiry = this.getAccessTokenExpiry(userRole); // Use same method
 
     res.cookie("authToken", accessToken, {
       ...cookieOptions,

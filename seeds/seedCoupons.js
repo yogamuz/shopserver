@@ -84,24 +84,7 @@ const seedCoupons = async () => {
         usageLimit: 2000,
         expiryDate: new Date("2027-03-31"),
       },
-      {
-        code: "NEWUSER20",
-        discount: 20,
-        minAmount: 100000,
-        maxDiscount: 100000,
-        description: "20% discount for new users",
-        usageLimit: 1000,
-        expiryDate: new Date("2027-03-31"),
-      },
-      {
-        code: "WEEKEND15",
-        discount: 15,
-        minAmount: 75000,
-        maxDiscount: 75000,
-        description: "Weekend special 15% discount",
-        usageLimit: 500,
-        expiryDate: new Date("2027-03-31"),
-      },
+
     ];
 
     const createdCoupons = await Coupon.insertMany(coupons);

@@ -38,7 +38,7 @@ class CartController {
   });
 
   /**
-   * PUT /api/cart/update/:productId - Update item quantity
+   * PUT /api/cart/:productId - Update item quantity
    */
   static updateCartItem = asyncHandler(async (req, res) => {
     const { productId } = req.params;
@@ -61,7 +61,7 @@ class CartController {
   });
 
   /**
-   * DELETE /api/cart/remove/:productId - Remove item from cart
+   * DELETE /api/cart/productId - Remove item from cart
    */
   static removeFromCart = asyncHandler(async (req, res) => {
     const { productId } = req.params;
@@ -109,16 +109,16 @@ class CartController {
   /**
    * DELETE /api/cart/coupon - Remove coupon from cart
    */
-  static removeCoupon = asyncHandler(async (req, res) => {
-    const userId = req.user._id;
-    const result = await CouponService.removeCoupon(userId);
+static removeCoupon = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const result = await CouponService.removeCoupon(userId);
 
-    res.status(HTTP_STATUS.OK).json({
-      success: true,
-      message: MESSAGES.CART.COUPON_REMOVED,
-      data: result,
-    });
+  res.status(HTTP_STATUS.OK).json({
+    success: true,
+    message: MESSAGES.CART.COUPON_REMOVED,
+    data: result, // result is already formatted cart response
   });
+});
 
   /**
    * GET /api/cart/count - Get cart items count

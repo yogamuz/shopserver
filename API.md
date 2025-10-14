@@ -12,24 +12,30 @@
 
 
 # 👤 User Routes
-| Kategori | Endpoint                         | Method      | Status  | Notes                                                          |
-| --------- | -------------------------------- | ----------- | ------- | -------------------------------------------------------------- |
-| 🛍️ Produk | `/api/categories/:id/products`  | **GET**    | ✅     | Public. Param: `id`. Query: `page`, `limit`. Cache 5m.           |
-| 🛍️ Produk | `/api/products`                 | **GET**    | ✅     | Public. Ambil semua produk.                                      |
-| 🛍️ Produk | `/api/products/:id`             | **GET**    | ✅     | Public. Param: `id`. Return produk + info penjual. Cache 1h.     |
-| 👤 User   | `/api/users/me`                 | **GET**    | ✅     | Requires JWT. Return profil + alamat. No-store cache.            |
-| 👤 User   | `/api/users/me`                 | **PUT**    | ✅     | Requires JWT. Update `{ firstName, lastName, phone, address, avatar }`. |
-| 👤 User   | `/api/users/me`                 | **POST**   | ✅     | Requires JWT. Buat profil (field sama seperti PUT).              |
-| 👤 User   | `/api/users/me`                 | **DELETE** | ✅     | Requires JWT. Soft delete / deactivate account.                  |
-| 👤 User   | `/api/users/me/avatar`          | **POST**   | ✅     | Requires JWT. Upload avatar ≤2MB (webp, jpg, jpeg, png, gif).    |
-| 🛒 Cart   | `/api/cart`                     | **GET**    | ✅     | Requires JWT. Get semua produk di cart.                          |
-| 🛒 Cart   | `/api/cart/count`               | **GET**    | ✅     | Requires JWT. Get jumlah produk di cart.                         |
-| 🛒 Cart   | `/api/cart/add`                 | **POST**   | ✅     | Requires JWT. Body: `{ productId, quantity }`.                   |
-| 🛒 Cart   | `/api/cart/update/:productId`   | **PUT**    | ✅     | Requires JWT. Body: `{ quantity }`.                              |
-| 🛒 Cart   | `/api/cart/remove/:productId`   | **DELETE** | ✅     | Requires JWT. Param: `productId`.                                |
-| 🛒 Cart   | `/api/cart/clear`               | **DELETE** | ✅     | Requires JWT. Hapus semua produk di cart.                        |
-| 🛒 Cart   | `/api/cart/coupon`              | **POST**   | ✅     | Requires JWT. Apply coupon ke cart.                              |
-| 🛒 Cart   | `/api/cart/coupon`              | **DELETE** | ✅     | Requires JWT. Hapus coupon dari cart.                            |
+| No | Kategori   | Endpoint                                  | Method     | Status | Notes                                                                   |
+| -- | ---------- | ----------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------- |
+| 1  | 🛍️ Produk | `/api/categories/:id/products`            | **GET**    | ✅      | Public. Param: `id`. Query: `page`, `limit`. Cache 5m.                  |
+| 2  | 🛍️ Produk | `/api/products`                           | **GET**    | ✅      | Public. Ambil semua produk.                                             |
+| 3  | 🛍️ Produk | `/api/products/:id`                       | **GET**    | ✅      | Public. Param: `id`. Return produk + info penjual. Cache 1h.            |
+| 4  | 👤 User    | `/api/users/me`                           | **GET**    | ✅      | Requires JWT. Return profil + alamat. No-store cache.                   |
+| 5  | 👤 User    | `/api/users/me`                           | **PUT**    | ✅      | Requires JWT. Update `{ firstName, lastName, phone, address, avatar }`. |
+| 6  | 👤 User    | `/api/users/me`                           | **POST**   | ✅      | Requires JWT. Buat profil (field sama seperti PUT).                     |
+| 7  | 👤 User    | `/api/users/me`                           | **DELETE** | ✅      | Requires JWT. Soft delete / deactivate account.                         |
+| 8  | 👤 User    | `/api/users/me/avatar`                    | **POST**   | ✅      | Requires JWT. Upload avatar ≤2MB (webp, jpg, jpeg, png, gif).           |
+| 9  | 🛒 Cart    | `/api/cart`                               | **GET**    | ✅      | Requires JWT. Get semua produk di cart.                                 |
+| 10 | 🛒 Cart    | `/api/cart/count`                         | **GET**    | ✅      | Requires JWT. Get jumlah produk di cart.                                |
+| 11 | 🛒 Cart    | `/api/cart/add`                           | **POST**   | ✅      | Requires JWT. Body: `{ productId, quantity }`.                          |
+| 12 | 🛒 Cart    | `/api/cart/update/:productId`             | **PUT**    | ✅      | Requires JWT. Body: `{ quantity }`.                                     |
+| 13 | 🛒 Cart    | `/api/cart/remove/:productId`             | **DELETE** | ✅      | Requires JWT. Param: `productId`.                                       |
+| 14 | 🛒 Cart    | `/api/cart/clear`                         | **DELETE** | ✅      | Requires JWT. Hapus semua produk di cart.                               |
+| 15 | 🛒 Cart    | `/api/cart/coupon`                        | **POST**   | ✅      | Requires JWT. Apply coupon ke cart.                                     |
+| 16 | 🛒 Cart    | `/api/cart/coupon`                        | **DELETE** | ✅      | Requires JWT. Hapus coupon dari cart.                                   |
+| 17 | 💳 Wallet  | `/api/users/wallet/balance`               | **GET**    | ✅      | Requires JWT. Cek saldo wallet user.                                    |
+| 18 | 💳 Wallet  | `/api/users/wallet/transactions`          | **GET**    | ✅      | Requires JWT. Riwayat transaksi wallet user.                            |
+| 19 | 💳 Wallet  | `/api/users/wallet/stats`                 | **GET**    | ✅      | Requires JWT. Statistik transaksi wallet user.                          |
+| 20 | 💳 Wallet  | `/api/users/wallet/check-balance/:amount` | **GET**    | ✅      | Requires JWT. Cek apakah saldo cukup untuk nominal tertentu.            |
+| 21 | 💳 Wallet  | `/api/users/wallet/setPin`                | **POST**   | ✅      | Requires JWT. Body: `{ pin, currentPin }`.                              |
+| 22 | 💳 Wallet  | `/api/users/orders`                       | **POST**   | ✅      | Requires JWT. Body : `{shippingAddress, paymentMethod, pin}`.                  |
 
 
 
@@ -70,25 +76,41 @@
 
 
 
-# 👑 Admin Routes 
-> Dokumentasi API untuk fitur **Admin** pada platform e-commerce ini.  
-> Setiap endpoint hanya dapat diakses oleh user dengan **role Admin** dan memerlukan JWT valid.
-| Kategori   | Endpoint                                         | Method     | Status | Notes                                                   |
-| ---------- | ------------------------------------------------ | ---------- | ------ | ------------------------------------------------------- |
-| 🛍️ Produk  | `/api/products/:id`                              | **DELETE** | ✅     | Admin only. Hapus produk + gambar. Return 204.          |
-| 👤 User    | `/api/users/:id/status`                          | **PUT**    | ✅     | Admin only. Ubah status user (`active` / `inactive`).   |
-| 👤 User    | `/api/users/:id/role`                            | **PUT**    | ✅     | Admin only. Ubah role user (`user` / `seller`).         |
-| 👤 User    | `/api/users/:id`                                 | **DELETE** | ✅     | Admin only. Soft delete user + nonaktifkan profil.      |
-| 👤 User    | `/api/users/:id/hard`                            | **DELETE** | ✅     | Admin only. Hard delete user + profil (cascade).        |
-| 📝 Profile | `/api/seller/admin/profiles/:profileId`          | **DELETE** | ✅     | Admin only. Hard delete profil toko.                    |
-| 📝 Profile | `/api/seller/admin/profiles/:profileId/soft`     | **DELETE** | ✅     | Admin only. Soft delete/deactivate profil toko.         |
-| 📝 Profile | `/api/seller/admin/profiles/:profileId/activate` | **PUT**    | ✅     | Admin only. Aktifkan / restore profil toko.             |
-| 📝 Profile | `/api/seller/admin/profiles`                     | **GET**    | ✅     | Admin only. Lihat semua toko penjual di platform.       |
-| 📝 Profile | `/api/seller/admin/profiles/:profileId`          | **GET**    | ✅     | Admin only. Lihat detail profil toko penjual di platform. |
-| 📂 Category| `/api/categories`                                | **POST**   | ✅     | Admin only. Tambah kategori baru.                       |
-| 📂 Category| `/api/categories/:categoryId`                    | **PUT**    | ✅     | Admin only. Edit nama kategori.                         |
-| 📂 Category| `/api/categories`                                | **DELETE** | ✅     | Admin only. Hapus kategori.                             |
----
-**Catatan:**
-- Semua endpoint **Admin Routes** memerlukan autentikasi JWT dan hanya dapat diakses oleh user dengan `role: admin`.
-- **Hard delete** akan menghapus data permanen dari database, sedangkan **soft delete** hanya menonaktifkan data tanpa menghapus fisik dari database.
+# 👑 Admin Routes
+Dokumentasi API untuk fitur Admin pada platform e-commerce ini.  
+Semua endpoint **hanya bisa diakses oleh user dengan role Admin** dan memerlukan **JWT valid**.  
+## 🔐 Authentication
+Header: Authorization: Bearer <your_jwt_token>
+## 👤 User Management
+| No | Endpoint                        | Method | Status | Parameters                                   | Request Body                                      | Notes                          |
+|----|---------------------------------|--------|--------|----------------------------------------------|--------------------------------------------------|--------------------------------|
+| 1  | /api/admin/users                | GET    | ✅     | page, limit, role, isActive, search (query)  | -                                                | Get semua users dengan pagination |
+| 2  | /api/admin/users/:userId        | GET    | ✅     | userId (path)                                | -                                                | Get detail user by ID           |
+| 3  | /api/admin/users/:userId        | PUT    | ✅     | userId (path)                                | { username, email, role, isActive, password? }   | Update user data                |
+| 4  | /api/admin/users/:userId        | DELETE | ✅     | userId (path), permanent=true/false (query)  | -                                                | Soft/hard delete user           |
+| 5  | /api/admin/users/:userId/role   | PATCH  | ✅     | userId (path)                                | { role: "user"/"seller"/"admin" }                | Ubah role user                  |
+| 6  | /api/admin/users/:userId/status | PATCH  | ✅     | userId (path)                                | { isActive: true/false }                         | Activate/deactivate user        |
+## 🏪 Seller Profile Management
+| No | Endpoint                              | Method | Status | Parameters                                         | Request Body                                   | Notes                        |
+|----|---------------------------------------|--------|--------|----------------------------------------------------|-----------------------------------------------|------------------------------|
+| 1  | /api/admin/seller-profiles            | GET    | ✅     | page, limit, search, city, status, sortBy, sortOrder (query) | -                                   | Get semua seller profiles    |
+| 2  | /api/admin/seller-profiles/:profileId | GET    | ✅     | profileId (path)                                   | -                                             | Get detail seller profile    |
+| 3  | /api/admin/seller-profiles/:profileId | PATCH  | ✅     | profileId (path)                                   | { status: "active"/"inactive", reason? }      | Activate/deactivate profile  |
+| 4  | /api/admin/seller-profiles/:profileId | DELETE | ✅     | profileId (path), permanent=true/false (query)     | -                                             | Soft/hard delete profile     |
+## 💰 Wallet Management
+| No | Endpoint                                         | Method | Status | Parameters                      | Request Body                                               | Notes                      |
+|----|--------------------------------------------------|--------|--------|---------------------------------|-----------------------------------------------------------|----------------------------|
+| 1  | /api/admin/wallets                               | GET    | ✅     | page, limit, search (query)     | -                                                         | Get semua wallets          |
+| 2  | /api/admin/wallets/:userId                       | GET    | ✅     | userId (path)                   | -                                                         | Get user wallet details    |
+| 3  | /api/admin/wallets/:userId                       | PATCH  | ✅     | userId (path)                   | { status: "active"/"inactive", reason? }                  | Activate/deactivate wallet |
+| 4  | /api/admin/wallets/:userId/transactions          | POST   | ✅     | userId (path)                   | { type: "top-up"/"deduct", amount, description?, reason? } | Create transaction         |
+| 5  | /api/admin/transactions                          | GET    | ✅     | page, limit, type, userId (query) | -                                                       | Get semua transactions     |
+| 6  | /api/admin/transactions/:transactionId/reversals | POST   | ✅     | transactionId (path)            | { reason?, confirmReverse? }                              | Reverse transaction        |
+| 7  | /api/admin/wallet-stats                          | GET    | ✅     | period (query)                  | -                                                         | Get wallet statistics      |
+## 📂 Category Management
+| No | Endpoint                  | Method | Status | Parameters | Request Body                   | Notes              |
+|----|---------------------------|--------|--------|------------|--------------------------------|--------------------|
+| 1  | /api/admin/categories     | POST   | ✅     | -          | { name, description?, image? } | Buat kategori baru |
+| 2  | /api/admin/categories/:id | PUT    | ✅     | id (path)  | { name, description?, image? } | Update kategori    |
+| 3  | /api/admin/categories/:id | DELETE | ✅     | id (path)  | -                              | Hapus kategori     |
+

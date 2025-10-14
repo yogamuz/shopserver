@@ -60,7 +60,6 @@ const couponSchema = new mongoose.Schema({
 });
 
 // Index untuk optimasi query - REMOVED duplicate code index
-// couponSchema.index({ code: 1 }); ← REMOVED - sudah ada dari unique: true
 couponSchema.index({ category: 1 });
 couponSchema.index({ isActive: 1 });
 couponSchema.index({ expiryDate: 1 });

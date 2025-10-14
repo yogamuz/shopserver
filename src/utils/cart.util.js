@@ -15,7 +15,7 @@ const populateCart = async (cart) => {
       },
       {
         path: "sellerId",
-        select: "storeName businessName storeSlug logo",
+        select: "storeName storeSlug logo",
         model: "SellerProfile",
       },
     ],
@@ -23,7 +23,7 @@ const populateCart = async (cart) => {
 };
 
 /**
- * Validate quantity input
+ * Validate quantity inputa
  */
 const validateQuantity = (quantity) => {
   if (!quantity || quantity < 0) {
@@ -126,38 +126,88 @@ const calculateCartTotals = (cart) => {
     finalPrice,
   };
 };
+
+// PERBAIKAN: Pastikan konsistensi perhitungan
 const formatCartResponse = (cart) => {
-  const cartObj = cart.toObject();
+  if (!cart) return null;
 
-  // Calculate totals
-  const totalPrice = cart.calculateTotal();
-  const finalPrice = cart.calculateFinalPrice();
-
-  // Format items with proper seller information
-  cartObj.items = cartObj.items.map((item) => {
-    const formattedItem = { ...item };
-
-    if (formattedItem.product) {
-      // Rename sellerId to seller and remove sellerId to avoid confusion
-      if (formattedItem.product.sellerId) {
-        formattedItem.product.seller = formattedItem.product.sellerId;
-      } else {
-        formattedItem.product.seller = {
-          _id: null,
-          storeName: "Default Store",
-          storeSlug: null,
-        };
-      }
-      delete formattedItem.product.sellerId;
-    }
-
-    return formattedItem;
-  });
+  // PERBAIKAN: Gunakan method yang sudah ada di cart model
+  const subtotal = cart.calculateTotal();
+  const totalItems = cart.totalItems;
+  const discount = cart.appliedCoupon ? cart.appliedCoupon.discountAmount : 0;
+  const finalPrice = cart.calculateFinalPrice(); // PERBAIKAN: Gunakan method yang sudah ada
 
   return {
-    ...cartObj,
-    totalPrice,
-    finalPrice,
+    id: cart._id,
+    userId: cart.user,
+    status: cart.isActive ? "active" : "inactive",
+    items: cart.items.map(item => {
+      const currentPrice = item.product?.price || item.priceAtAddition;
+      
+      return {
+        id: item._id,
+        productId: item.product._id,
+        quantity: item.quantity,
+        unitPrice: currentPrice,
+        totalPrice: currentPrice * item.quantity,
+        addedAt: item.addedAt || cart.updatedAt,
+        product: {
+          id: item.product._id,
+          title: item.product.title,
+          description: item.product.description,
+          currentPrice: item.product.price,
+          stock: item.product.stock,
+          slug: item.product.slug,
+          image: {
+            url: item.product.image || null,
+            alt: item.product.title || "Product Image"
+          },
+          category: item.product.category ? {
+            id: item.product.category._id,
+            name: item.product.category.name,
+            description: item.product.category.description,
+            slug: item.product.category.slug
+          } : null,
+          seller: item.product.sellerId ? {
+            id: item.product.sellerId._id || item.product.sellerId,
+            name: item.product.sellerId.storeName || item.product.sellerId.name,
+            slug: item.product.sellerId.storeSlug || item.product.sellerId.slug,
+            logo: {
+              url: item.product.sellerId.logo || null,
+              alt: `${item.product.sellerId.storeName || item.product.sellerId.name || 'Store'} Logo`
+            }
+          } : null
+        }
+      };
+    }),
+    summary: {
+      totalItems,
+      itemsCount: cart.items.length,
+      subtotal,
+      discount,
+      total: finalPrice, // PERBAIKAN: Gunakan finalPrice yang sudah dihitung dengan benar
+      currency: "IDR",
+      savings: discount > 0 ? discount : 0
+    },
+    appliedCoupon: cart.appliedCoupon ? {
+      id: cart.appliedCoupon.couponId,
+      code: cart.appliedCoupon.code,
+      type: cart.appliedCoupon.discount ? 'percentage' : 'fixed',
+      value: cart.appliedCoupon.discount || cart.appliedCoupon.discountAmount,
+      discountAmount: cart.appliedCoupon.discountAmount,
+      maxDiscount: cart.appliedCoupon.maxDiscount,
+      appliedAt: cart.appliedCoupon.appliedAt
+    } : null,
+    timestamps: {
+      createdAt: cart.createdAt,
+      updatedAt: cart.updatedAt
+    },
+    meta: {
+      version: "1.0.0",
+      hasDiscount: discount > 0,
+      isEmpty: cart.items.length === 0,
+      lastActivity: cart.updatedAt
+    }
   };
 };
 

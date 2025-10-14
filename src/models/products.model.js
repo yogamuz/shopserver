@@ -8,6 +8,14 @@ const productSchema = new mongoose.Schema(
     title: {
       type: String,
       required: true,
+      index: true,
+      trim: true,
+    },
+    // NEW: Slug field for SEO-friendly URLs
+    slug: {
+      type: String,
+      unique: true,
+      index: true,
       trim: true,
     },
     description: {
@@ -22,6 +30,7 @@ const productSchema = new mongoose.Schema(
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
+      index: true,
       required: true,
     },
     image: {
@@ -115,6 +124,16 @@ const productSchema = new mongoose.Schema(
   }
 );
 
+function generateSlug(title) {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "") // Remove special characters
+    .replace(/\s+/g, "-") // Replace spaces with hyphens
+    .replace(/-+/g, "-") // Replace multiple hyphens with single hyphen
+    .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
+}
+
 productSchema.virtual("carts", {
   ref: "Cart",
   localField: "_id",
@@ -139,14 +158,29 @@ productSchema.virtual("imageWithAlt").get(function () {
 });
 
 // Updated indexes to include sellerId
+// Core indexes
 productSchema.index({ category: 1, isActive: 1 });
 productSchema.index({ price: 1 });
 productSchema.index({ rating: -1 });
 productSchema.index({ category: 1, price: 1 });
 productSchema.index({ category: 1, rating: -1 });
-productSchema.index({ sellerId: 1, isActive: 1 }); // NEW: Seller products index
-productSchema.index({ sellerId: 1, category: 1 }); // NEW: Seller category index
-productSchema.index({ deletedAt: 1 }); // NEW: Soft delete index
+
+// Seller-specific indexes
+productSchema.index({ sellerId: 1, category: 1 });
+productSchema.index({ sellerId: 1, deletedAt: 1, createdAt: -1 }); // NEW: Untuk getProductStats
+
+// Complex queries
+productSchema.index({ category: 1, price: 1, isActive: 1, deletedAt: 1 });
+productSchema.index({ isActive: 1, deletedAt: 1, rating: -1, createdAt: -1 });
+
+productSchema.index({ 
+  title: "text", 
+  description: "text" 
+}, {
+  weights: { title: 10, description: 5 },
+  name: "search_index"
+});
+
 
 productSchema.methods.getCategoryInfo = function () {
   return mongoose.model("Category").findById(this.category);
@@ -192,6 +226,41 @@ productSchema.methods.getSimilarProducts = function (limit = 5) {
     .limit(limit)
     .sort({ rating: -1 })
     .populate("category");
+};
+
+// NEW: Virtual for reviews
+productSchema.virtual("reviewsList", {
+  ref: "Review",
+  localField: "_id",
+  foreignField: "productId",
+  justOne: false,
+  match: { isActive: true, deletedAt: null },
+});
+
+// NEW: Method to get reviews with pagination
+productSchema.methods.getReviews = function (options = {}) {
+  const Review = mongoose.model("Review");
+  return Review.getByProduct(this._id, options);
+};
+
+// NEW: Method to get rating statistics
+productSchema.methods.getRatingStats = function () {
+  const Review = mongoose.model("Review");
+  return Review.getProductRatingStats(this._id);
+};
+
+// NEW: Method to check if user can review
+productSchema.methods.canUserReview = function (userId) {
+  const Review = mongoose.model("Review");
+  return Review.checkUserCanReview(userId, this._id);
+};
+
+// NEW: Method to update rating dan reviews count dari Review collection
+productSchema.methods.updateRatingFromReviews = async function () {
+  const stats = await this.getRatingStats();
+  this.rating = stats.averageRating;
+  this.reviews = stats.totalReviews;
+  return this.save();
 };
 
 // NEW: Get products by seller
@@ -253,6 +322,7 @@ productSchema.statics.getByCategory = function (categoryId, options = {}) {
 };
 
 // NEW: Search products with seller context
+// NEW: Search products with seller context - FIXED VERSION
 productSchema.statics.searchProducts = function (searchTerm, options = {}) {
   const {
     page = 1,
@@ -296,11 +366,10 @@ productSchema.statics.searchProducts = function (searchTerm, options = {}) {
     case "newest":
       sortCriteria = { createdAt: -1 };
       break;
+    case "relevance":
     default:
-      sortCriteria = {
-        score: { $meta: "textScore" },
-        rating: -1,
-      };
+      // Fixed: Don't use $meta textScore without text index
+      sortCriteria = { rating: -1, createdAt: -1 };
   }
 
   return this.find(match)
@@ -309,6 +378,29 @@ productSchema.statics.searchProducts = function (searchTerm, options = {}) {
     .skip((page - 1) * limit)
     .populate("category")
     .populate("sellerId", "storeName storeSlug logo");
+};
+
+productSchema.statics.findBySlug = function (slug, options = {}) {
+  const { includeDeleted = false } = options;
+
+  const query = { slug };
+
+  if (!includeDeleted) {
+    query.deletedAt = { $in: [null, undefined] };
+  }
+
+  return this.findOne(query)
+    .populate("category", "name description image")
+    .populate({
+      path: "sellerId",
+      select: "storeName storeSlug logo contact userId",
+      populate: {
+        path: "userId",
+        select: "lastSeen isActive username email",
+        model: "User"
+      }
+    });
+    // ← HAPUS .lean() di sini, populate harus sebelum lean
 };
 
 // NEW: Soft delete method with WIB timestamp
@@ -327,8 +419,23 @@ productSchema.methods.restore = function () {
   return this.save();
 };
 
-// Updated pre-save middleware
 productSchema.pre("save", async function (next) {
+  // Generate slug if title is modified or this is a new document
+  if (this.isModified("title") || this.isNew) {
+    let baseSlug = generateSlug(this.title);
+    let slug = baseSlug;
+    let counter = 1;
+
+    // Check if slug already exists and create unique one
+    while (await this.constructor.findOne({ slug, _id: { $ne: this._id } })) {
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+
+    this.slug = slug;
+  }
+
+  // Existing validation logic...
   if (this.isModified("category")) {
     const category = await mongoose.model("Category").findById(this.category);
     if (!category || !category.isActive) {
@@ -369,8 +476,16 @@ productSchema.pre("remove", async function (next) {
   }
 });
 
-// NEW: Query middleware to exclude soft-deleted by default
+// NEW: Query middleware to exclude soft-deleted by default - FIXED VERSION
 productSchema.pre(/^find/, function (next) {
+  // Skip this middleware for populate queries or when explicitly disabled
+  if (
+    this.getQuery().skipSoftDeleteFilter ||
+    this.getOptions().skipSoftDeleteFilter
+  ) {
+    return next();
+  }
+
   // Don't apply to queries that explicitly include deleted items
   if (!this.getQuery().includeDeleted) {
     this.find({ deletedAt: { $in: [null, undefined] } });
@@ -382,31 +497,73 @@ productSchema.pre(/^find/, function (next) {
 productSchema.set("toJSON", {
   virtuals: true,
   getters: true,
-  transform: function (doc, ret) {
-    // Convert timestamps to WIB when serializing
-    if (ret.createdAt) {
-      ret.createdAt = new Date(
-        ret.createdAt.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
-      );
-    }
-    if (ret.updatedAt) {
-      ret.updatedAt = new Date(
-        ret.updatedAt.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
-      );
-    }
+  transform: function (doc, ret, options) {
+    // Create clean response object
+    const cleanResponse = {
+      id: ret._id,
+      title: ret.title,
+      slug: ret.slug,
+      description: ret.description,
+      price: ret.price,
+      stock: ret.stock,
+      isActive: ret.isActive,
+      rating: ret.rating,
+      reviews: ret.reviews,
 
-    // Add imageWithAlt virtual field
-    ret.imageWithAlt = {
-      url: ret.image || null,
-      alt: ret.title || "Product Image",
-      hasImage: !!ret.image,
+      // Image information
+      image: {
+        url: ret.image || null,
+        alt: ret.title || "Product Image",
+        hasImage: !!ret.image,
+      },
+
+      // Category (if populated)
+      category: ret.category
+        ? typeof ret.category === "object" && ret.category._id
+          ? {
+              id: ret.category._id,
+              name: ret.category.name,
+              description: ret.category.description,
+              slug: ret.category.slug,
+              image: ret.category.image,
+            }
+          : ret.category
+        : ret.category,
+
+      // Seller (if populated)
+      seller: ret.sellerId
+        ? typeof ret.sellerId === "object" && ret.sellerId._id
+          ? {
+              id: ret.sellerId._id,
+              storeName: ret.sellerId.storeName,
+              storeSlug: ret.sellerId.storeSlug,
+              logo: ret.sellerId.logo,
+              contact: ret.sellerId.contact,
+            }
+          : ret.sellerId
+        : ret.sellerId,
+
+      // Timestamps in WIB
+      createdAt: ret.createdAt
+        ? new Date(
+            ret.createdAt.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
+          )
+        : null,
+      updatedAt: ret.updatedAt
+        ? new Date(
+            ret.updatedAt.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
+          )
+        : null,
     };
 
-    // Don't expose deletedAt in public responses unless explicitly requested
-    if (!doc.includeDeleted && ret.deletedAt) {
-      delete ret.deletedAt;
+    // Only include deletedAt if explicitly requested
+    if (options && options.includeDeleted && ret.deletedAt) {
+      cleanResponse.deletedAt = new Date(
+        ret.deletedAt.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
+      );
     }
-    return ret;
+
+    return cleanResponse;
   },
 });
 

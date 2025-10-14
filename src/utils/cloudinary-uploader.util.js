@@ -1,3 +1,4 @@
+// cloudinary-uploader.util.js
 const multer = require("multer");
 const sharp = require("sharp");
 const crypto = require("crypto");
@@ -8,7 +9,7 @@ const logger = require("./logger");
  * Allowed image types
  */
 const ALLOWED_TYPES = {
-  "image/jpeg": "jpg",
+  "image/jpeg": "jpeg",
   "image/jpg": "jpg",
   "image/png": "png",
   "image/webp": "webp",

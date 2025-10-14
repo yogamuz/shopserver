@@ -15,6 +15,7 @@ const MESSAGES = {
     ARCHIVED: "Seller profile archived successfully",
     RESTORED: "Seller profile restored successfully",
     ACTIVATED: 'Seller profile activated successfully',
+    DEACTIVATED: 'Seller profile deactivated successfully',
     SOFT_DELETED: "Seller profile deleted successfully",
     HARD_DELETED: "Seller profile permanently deleted",
     IMAGE_UPLOADED: "uploaded successfully",

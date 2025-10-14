@@ -111,45 +111,50 @@ walletTransactionSchema.methods.reverse = async function(reason = 'Transaction r
   }
   
   const session = await mongoose.startSession();
+  let reversalTransaction;
   
   try {
     await session.withTransaction(async () => {
-      // Buat transaksi balikan
-      const reversalTransaction = new this.constructor({
-        userId: this.userId,
-        type: this.type === 'top_up' ? 'admin_deduct' : 'refund',
-        amount: -this.amount,
-        description: `${reason} - Reversal of: ${this.description}`,
-        orderId: this.orderId,
-        sellerId: this.sellerId,
-        adminId: adminId,
-        reversalOf: this._id,
-        metadata: {
-          ...this.metadata,
-          source: 'reversal'
-        }
-      });
-      
       // Update wallet balance
       const Wallet = mongoose.model('Wallet');
-      const wallet = await Wallet.findByUser(this.userId).session(session);
+      const wallet = await Wallet.findOne({ userId: this.userId }).session(session);
       
       if (!wallet) throw new Error('Wallet not found');
       
-      // Reverse the transaction
-      if (this.type === 'top_up' || this.type === 'receive_confirmed') {
+      // Reverse the transaction effects on wallet
+      if (this.type === 'top_up') {
         wallet.balance -= Math.abs(this.amount);
-      } else if (this.type === 'payment') {
+      } else if (this.type === 'payment' || this.type === 'admin_deduct') {
         wallet.balance += Math.abs(this.amount);
       } else if (this.type === 'receive_pending') {
         wallet.pendingBalance -= Math.abs(this.amount);
+      } else if (this.type === 'receive_confirmed') {
+        wallet.balance -= Math.abs(this.amount);
+        wallet.pendingBalance += Math.abs(this.amount);
+      } else if (this.type === 'refund') {
+        wallet.balance -= Math.abs(this.amount);
       }
       
       wallet.availableBalance = wallet.balance;
       wallet.lastTransaction = new Date();
       
-      reversalTransaction.balanceAfter = wallet.balance;
-      reversalTransaction.pendingBalanceAfter = wallet.pendingBalance;
+      // Buat transaksi balikan
+      reversalTransaction = new this.constructor({
+        userId: this.userId,
+        type: this.type === 'top_up' ? 'admin_deduct' : 'refund',
+        amount: Math.abs(this.amount), // Selalu positif, logika ada di createTransaction
+        description: `${reason} - Reversal of: ${this.description}`,
+        orderId: this.orderId,
+        sellerId: this.sellerId,
+        adminId: adminId,
+        reversalOf: this._id,
+        balanceAfter: wallet.balance,
+        pendingBalanceAfter: wallet.pendingBalance,
+        metadata: {
+          ...this.metadata,
+          source: 'reversal'
+        }
+      });
       
       await wallet.save({ session });
       await reversalTransaction.save({ session });
@@ -158,15 +163,14 @@ walletTransactionSchema.methods.reverse = async function(reason = 'Transaction r
       this.isReversed = true;
       this.reversedAt = new Date();
       await this.save({ session });
-      
-      return reversalTransaction;
     });
+    
+    return reversalTransaction;
   } finally {
     await session.endSession();
   }
 };
 
-// Static Methods
 walletTransactionSchema.statics.getUserTransactions = function(userId, options = {}) {
   const {
     page = 1,
@@ -194,9 +198,14 @@ walletTransactionSchema.statics.getUserTransactions = function(userId, options =
     .sort({ [sortBy]: sortOrder })
     .limit(limit * 1)
     .skip((page - 1) * limit)
-    .populate('orderId', 'orderNumber status')
+    .populate({
+      path: 'orderId',
+      select: 'orderNumber status totalPrice',
+      options: { strictPopulate: false }
+    })
     .populate('sellerId', 'storeName storeSlug')
-    .populate('adminId', 'username email');
+    .populate('adminId', 'username email')
+    .lean();
 };
 
 walletTransactionSchema.statics.getTransactionStats = async function(userId, period = '30d') {
@@ -237,60 +246,87 @@ walletTransactionSchema.statics.getTransactionStats = async function(userId, per
   return stats;
 };
 
-// Static method untuk create transaction dengan wallet update
+// Static method untuk create transaction dengan wallet update - FIXED
 walletTransactionSchema.statics.createTransaction = async function(transactionData) {
   const session = await mongoose.startSession();
   
   try {
     return await session.withTransaction(async () => {
       const Wallet = mongoose.model('Wallet');
-      const wallet = await Wallet.findByUser(transactionData.userId).session(session);
+      const wallet = await Wallet.findOne({ userId: transactionData.userId }).session(session);
       
       if (!wallet) throw new Error('Wallet not found');
+      
+      // FIXED: Pisahkan logic untuk sellerId - jangan ubah userId
+      let sellerId = transactionData.sellerId;
+      
+      // Untuk transaksi seller, cari sellerId berdasarkan userId tapi JANGAN ubah userId
+      if (!sellerId && ['receive_pending', 'receive_confirmed'].includes(transactionData.type)) {
+        const SellerProfile = mongoose.model('SellerProfile');
+        const sellerProfile = await SellerProfile.findOne({ userId: transactionData.userId }).session(session);
+        if (sellerProfile) {
+          sellerId = sellerProfile._id;
+        }
+      }
       
       // Update wallet berdasarkan tipe transaksi
       switch(transactionData.type) {
         case 'top_up':
           wallet.balance += Math.abs(transactionData.amount);
           break;
+          
         case 'payment':
           if (wallet.balance < Math.abs(transactionData.amount)) {
             throw new Error('Insufficient balance');
           }
           wallet.balance -= Math.abs(transactionData.amount);
           break;
+          
+        case 'admin_deduct':
+          if (wallet.balance < Math.abs(transactionData.amount)) {
+            throw new Error('Insufficient balance');
+          }
+          wallet.balance -= Math.abs(transactionData.amount);
+          break;
+          
         case 'receive_pending':
           wallet.pendingBalance += Math.abs(transactionData.amount);
           break;
+          
         case 'receive_confirmed':
-          if (wallet.pendingBalance < Math.abs(transactionData.amount)) {
-            throw new Error('Insufficient pending balance');
-          }
-          wallet.pendingBalance -= Math.abs(transactionData.amount);
-          wallet.balance += Math.abs(transactionData.amount);
+          // Don't modify wallet here - let the calling code handle wallet updates
+          // This prevents double-processing when called from confirmPendingBalance
           break;
+          
         case 'refund':
           wallet.balance += Math.abs(transactionData.amount);
-          break;
-        case 'admin_deduct':
-          if (wallet.balance < Math.abs(transactionData.amount)) {
-            throw new Error('Insufficient balance for deduction');
-          }
-          wallet.balance -= Math.abs(transactionData.amount);
           break;
       }
       
       wallet.availableBalance = wallet.balance;
       wallet.lastTransaction = new Date();
       
-      // Create transaction record
+      // Save wallet only if it was modified
+      if (transactionData.type !== 'receive_confirmed') {
+        await wallet.save({ session });
+      }
+      
+      // FIXED: Create transaction record dengan userId asli dan sellerId terpisah
       const transaction = new this({
-        ...transactionData,
+        userId: transactionData.userId,        // TETAP userId asli (User._id)
+        type: transactionData.type,
+        amount: transactionData.amount,
+        description: transactionData.description,
+        orderId: transactionData.orderId || null,
+        sellerId: sellerId,                    // SellerProfile._id (bukan userId)
+        adminId: transactionData.adminId || null,
+        status: transactionData.status || 'completed',
+        metadata: transactionData.metadata || {},
+        reversalOf: transactionData.reversalOf || null,
         balanceAfter: wallet.balance,
         pendingBalanceAfter: wallet.pendingBalance
       });
       
-      await wallet.save({ session });
       await transaction.save({ session });
       
       return transaction;
@@ -310,7 +346,6 @@ walletTransactionSchema.pre('save', function(next) {
   next();
 });
 
-// Transform output
 walletTransactionSchema.set('toJSON', {
   virtuals: true,
   transform: function(doc, ret) {
@@ -324,6 +359,15 @@ walletTransactionSchema.set('toJSON', {
         hour: '2-digit',
         minute: '2-digit'
       });
+    }
+    
+    // Safe access untuk order data
+    if (ret.orderId && typeof ret.orderId === 'object') {
+      ret.orderData = {
+        orderNumber: ret.orderId.orderNumber || null,
+        status: ret.orderId.status || null,
+        totalPrice: ret.orderId.totalPrice || 0
+      };
     }
     
     return ret;

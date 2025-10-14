@@ -1,10 +1,8 @@
-// validation.helper.js - Tambahkan method untuk validate image URL (optional)
 
 /**
  * Validation helper utilities
  */
 class ValidationHelper {
-  // ... existing methods tetap sama ...
 
   /**
    * Validate image URL (optional)
