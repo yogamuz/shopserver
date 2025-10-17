@@ -1,10 +1,14 @@
 // Fixed cookie-helper.js with consistent expiry times
 class CookieHelper {
   static getBaseCookieOptions() {
+    const isProduction = process.env.NODE_ENV === "production";
+
     return {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isProduction, // HTTPS only in production
+      sameSite: isProduction ? "none" : "lax", // ✅ FIX: 'none' for cross-domain in production
+      // ✅ FIX: Don't set domain - let browser handle it
+      path: "/",
     };
   }
 
