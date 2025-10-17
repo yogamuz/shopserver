@@ -5,7 +5,7 @@ class CookieHelper {
 
     return {
       httpOnly: true,
-      secure: isProduction, // HTTPS only in production
+      secure: isProduction ? true : false, // HTTPS only in production
       sameSite: isProduction ? "none" : "lax", // ✅ FIX: 'none' for cross-domain in production
       // ✅ FIX: Don't set domain - let browser handle it
       path: "/",

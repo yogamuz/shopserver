@@ -4,7 +4,8 @@
 const getCorsConfig = () => {
   // Buat array untuk menampung semua origin yang diizinkan
   const allowedOrigins = [
-    process.env.CLIENT_URL,        // URL production/deployed
+    process.env.CLIENT_URL,  
+    process.env.CLIENT_URL_LOCAL      // URL production/deployed
   ].filter(Boolean); // Remove undefined/null values
 
   return {
