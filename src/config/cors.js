@@ -1,15 +1,12 @@
-
 // ========================================
 // FILE: config/cors.js
 // ========================================
 const getCorsConfig = () => {
+  // Buat array untuk menampung semua origin yang diizinkan
   const allowedOrigins = [
-    process.env.CLIENT_URL || "http://localhost:3000",
-    "http://localhost:5173", // Vite dev server
-    "https://localhost:5173", // HTTPS version
-    "http://127.0.0.1:5173", // Alternative localhost
-    "https://127.0.0.1:5173", // HTTPS alternative
-  ];
+    process.env.CLIENT_URL,        // URL production/deployed
+    process.env.CLIENT_URL_LOCAL,  // URL localhost
+  ].filter(Boolean); // Remove undefined/null values
 
   return {
     origin: function (origin, callback) {

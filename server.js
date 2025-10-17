@@ -15,7 +15,7 @@ const app = require("./src/app");
 const logger = require("./src/utils/logger");
 
 // Set port
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8001;
 const keepAlive = () => {
   if (process.env.NODE_ENV === "production") {
     setInterval(() => {

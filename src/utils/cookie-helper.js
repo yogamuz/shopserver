@@ -4,7 +4,7 @@ class CookieHelper {
     return {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
     };
   }
 
