@@ -1,34 +1,25 @@
-// Fixed cookie-helper.js with consistent expiry times
 class CookieHelper {
   static getBaseCookieOptions() {
     const isProduction = process.env.NODE_ENV === "production";
 
     return {
       httpOnly: true,
-      secure: isProduction ? true : false, // HTTPS only in production
-      sameSite: isProduction ? "none" : "lax", // ✅ FIX: 'none' for cross-domain in production
-      // ✅ FIX: Don't set domain - let browser handle it
+      secure: isProduction, // ✅ FIX: false di dev, true di prod
+      sameSite: isProduction ? "none" : "lax", // ✅ FIX: 'lax' di dev, 'none' di prod
       path: "/",
     };
   }
 
-  // **FIX**: Consistent access token expiry
   static getAccessTokenExpiry(userRole) {
-    return userRole === "admin" ? 2 * 60 * 60 * 1000 : 15 * 60 * 1000; // Admin 2h, User 15m
+    return userRole === "admin" ? 2 * 60 * 60 * 1000 : 15 * 60 * 1000;
   }
 
   static getRefreshTokenExpiry() {
-    return 30 * 24 * 60 * 60 * 1000; // 30 days untuk match absolute expiry
+    return 30 * 24 * 60 * 60 * 1000;
   }
 
   static setCookies(res, accessToken, refreshToken, userRole) {
     const cookieOptions = this.getBaseCookieOptions();
-    const accessTokenExpiry = this.getAccessTokenExpiry(userRole);
-
-    res.cookie("authToken", accessToken, {
-      ...cookieOptions,
-      maxAge: accessTokenExpiry,
-    });
 
     res.cookie("refreshToken", refreshToken, {
       ...cookieOptions,
@@ -39,31 +30,15 @@ class CookieHelper {
   static setRegistrationCookies(res, accessToken, refreshToken) {
     const cookieOptions = this.getBaseCookieOptions();
 
-    res.cookie("authToken", accessToken, {
-      ...cookieOptions,
-      maxAge: 1000 * 60 * 5, // 5 minutes for registration
-    });
-
+    // ONLY set refreshToken cookie
     res.cookie("refreshToken", refreshToken, {
       ...cookieOptions,
       maxAge: this.getRefreshTokenExpiry(),
     });
   }
 
-  // **FIX**: Use consistent expiry calculation
-  static setAccessTokenCookie(res, accessToken, userRole) {
-    const cookieOptions = this.getBaseCookieOptions();
-    const accessTokenExpiry = this.getAccessTokenExpiry(userRole); // Use same method
-
-    res.cookie("authToken", accessToken, {
-      ...cookieOptions,
-      maxAge: accessTokenExpiry,
-    });
-  }
-
   static clearCookies(res) {
     const cookieOptions = this.getBaseCookieOptions();
-    res.clearCookie("authToken", cookieOptions);
     res.clearCookie("refreshToken", cookieOptions);
   }
 }
